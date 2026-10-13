@@ -66,7 +66,7 @@ export function TimedCrisisWatcher({ onResolveConflict }: { onResolveConflict: (
         .filter((k) => k.status === "ONGOING" && due(k.deadline_at))
         .map((k) => ({ kind: "conflict" as const, key: `conflict:${k.id}:${k.deadline_at}`, item: k })),
       ...notes
-        .filter((n) => !n.resolved_at && due(n.deadline_at))
+        .filter((n) => due(n.deadline_at))
         .map((n) => ({ kind: "note" as const, key: `note:${n.id}:${n.deadline_at}`, item: n })),
     ].filter((o) => !dismissed.has(o.key));
   }, [conflicts, notes, now, dismissed]);
@@ -87,10 +87,11 @@ export function TimedCrisisWatcher({ onResolveConflict }: { onResolveConflict: (
     dismiss(current.key);
   }
 
-  function resolve() {
+  // Notes can't be resolved (only conflicts can), so a note's timer is just cleared.
+  function settle() {
     if (!current) return;
     if (current.kind === "conflict") onResolveConflict(current.item);
-    else updateNote({ id: current.item.id, body: { resolved: true } });
+    else updateNote({ id: current.item.id, body: { deadline_at: null } });
     dismiss(current.key);
   }
 
@@ -109,7 +110,7 @@ export function TimedCrisisWatcher({ onResolveConflict }: { onResolveConflict: (
               ran out
               {current.kind === "conflict"
                 ? ` while ${joinNames(current.item.parties)} were still fighting.`
-                : " before it was resolved."}
+                : "."}
               {overdue.length > 1 ? ` (${overdue.length - 1} more waiting.)` : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -120,7 +121,7 @@ export function TimedCrisisWatcher({ onResolveConflict }: { onResolveConflict: (
             <Button variant="outline" onClick={extend}>
               +5 minutes
             </Button>
-            <Button onClick={resolve}>{current.kind === "conflict" ? "Resolve conflict…" : "Mark resolved"}</Button>
+            <Button onClick={settle}>{current.kind === "conflict" ? "Resolve conflict…" : "Clear timer"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       ) : null}

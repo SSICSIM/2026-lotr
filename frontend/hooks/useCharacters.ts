@@ -41,9 +41,15 @@ export function useBulkUploadCharacters() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (file: File) => charactersService.bulkUpload(file),
-    onSuccess: ({ created, skipped }) => {
+    onSuccess: ({ created, skipped, errors }) => {
       qc.invalidateQueries({ queryKey: ["characters"] });
       toast.success(`Imported ${created} character${created !== 1 ? "s" : ""}${skipped ? `, ${skipped} skipped (duplicate)` : ""}.`);
+      if (errors.length) {
+        toast.warning(`${errors.length} row${errors.length === 1 ? "" : "s"} need attention`, {
+          description: errors.join(" · "),
+          duration: 15000,
+        });
+      }
     },
     onError: (err: Error) => toast.error(err.message || "Upload failed."),
   });

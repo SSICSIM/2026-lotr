@@ -23,19 +23,39 @@ from app.models.map import GameState
 
 MAX_CORRUPTION = 100.0
 
-# Default curve steepness by race (percentage points per hour²). Placeholder
-# values until the directors provide real ones: a hobbit takes ~14 h of
-# holding to be fully corrupted, a man ~8 h, an orc ~7 h.
+# The four character classes and their default curve steepness (percentage
+# points per hour²). Placeholder values until the directors provide real
+# ones: wizards & hobbits take ~14 h of holding to be fully corrupted, men ~8 h.
 RACE_CURVE_A: dict[str, float] = {
-    "HOBBIT": 0.5,
-    "WIZARD": 0.8,
+    "MAN": 1.5,
     "ELF": 1.0,
     "DWARF": 1.2,
-    "MAN": 1.5,
-    "ORC": 2.0,
-    "OTHER": 1.0,
+    "WIZARD_HOBBIT": 0.5,
 }
 RACES = list(RACE_CURVE_A)
+DEFAULT_RACE = "MAN"
+
+# Spellings accepted from character sheets, after lower-casing and dropping
+# everything but letters.
+_CLASS_ALIASES = {
+    "MAN": ["man", "men", "human", "humans"],
+    "ELF": ["elf", "elves", "elven"],
+    "DWARF": ["dwarf", "dwarfs", "dwarves"],
+    "WIZARD_HOBBIT": [
+        "wizard", "wizards", "hobbit", "hobbits", "wizardhobbit", "wizardshobbits",
+        "wizardsandhobbits", "wizardandhobbit", "hobbitswizards", "hobbitsandwizards",
+    ],
+}
+_CLASS_LOOKUP = {alias: race for race, aliases in _CLASS_ALIASES.items() for alias in aliases}
+
+
+def normalize_class(text: str | None) -> str | None:
+    """Sheet/class text → class key; DEFAULT_RACE when blank, None if unknown."""
+    if text is None or not str(text).strip():
+        return DEFAULT_RACE
+    if str(text).strip().upper() in RACE_CURVE_A:
+        return str(text).strip().upper()
+    return _CLASS_LOOKUP.get("".join(ch for ch in str(text).lower() if ch.isalpha()))
 
 
 def now_utc() -> datetime:
@@ -45,7 +65,7 @@ def now_utc() -> datetime:
 def curve_a(character: Character) -> float:
     if character.corruption_a is not None:
         return character.corruption_a
-    return RACE_CURVE_A.get(character.race, RACE_CURVE_A["OTHER"])
+    return RACE_CURVE_A.get(character.race, RACE_CURVE_A[DEFAULT_RACE])
 
 
 def is_accruing(character: Character, game: GameState) -> bool:

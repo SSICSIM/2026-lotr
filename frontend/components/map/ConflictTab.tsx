@@ -231,7 +231,7 @@ function ConflictDetailBody({ conflict }: { conflict: ConflictResponse }) {
         <div className="bg-muted mt-3 rounded-md p-2 text-xs">
           <p className="font-semibold">
             Resolved {conflict.resolved_at ? format(new Date(conflict.resolved_at), "MMM d, h:mm a") : ""} ·{" "}
-            {winner ? `${winner.name} prevailed` : "No clear winner"}
+            {conflict.outcome_label ?? (winner ? `${winner.name} prevailed` : "No clear winner")}
           </p>
           {conflict.outcome_summary ? <p className="mt-0.5">{conflict.outcome_summary}</p> : null}
         </div>

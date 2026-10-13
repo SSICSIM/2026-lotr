@@ -18,7 +18,7 @@ import { useMapParams } from "./useMapParams";
 // Leaflet touches `window` on import, so the canvas only renders client-side.
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
   ssr: false,
-  loading: () => <div className="absolute inset-0 bg-[#3a2e22]" />,
+  loading: () => <div className="absolute inset-0 bg-[#271613]" />,
 });
 
 const ALL = "all";

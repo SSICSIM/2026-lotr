@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import csv
 import io
 import json
+from dataclasses import dataclass
 from datetime import datetime
 
 import openpyxl
@@ -22,11 +24,13 @@ from app.schemas import (
     MoveRequest,
 )
 from app.services import corruption
+from app.services.avatars import normalize_image_url
 from app.services.game import load_game_state
 from app.services.geo import region_at
 from app.services.discovery import set_discovered
 from app.services.groups import assign, default_group
 from app.services.notes import active_period
+from app.services.places import default_start, find_location, place_character
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -96,10 +100,15 @@ def update_character(
 ) -> MapCharacterResponse:
     character = _get_character(db, character_id)
     updates = body.model_dump(exclude_unset=True)
-    if updates.get("race") is not None and updates["race"] not in corruption.RACES:
-        raise HTTPException(
-            status_code=422, detail=f"Race must be one of: {', '.join(corruption.RACES)}."
-        )
+    if updates.get("race") is not None:
+        race = corruption.normalize_class(updates["race"])
+        if race is None:
+            raise HTTPException(
+                status_code=422, detail=f"Class must be one of: {', '.join(corruption.RACES)}."
+            )
+        updates["race"] = race
+    if "avatar_url" in updates:
+        updates["avatar_url"] = normalize_image_url(updates["avatar_url"])
     game = load_game_state(db)
     race = updates.pop("race", None)
     if race is not None or "corruption_a" in updates:
@@ -126,18 +135,24 @@ def move_character(
     character_id: int, body: MoveRequest, db: Session = Depends(get_db)
 ) -> MapCharacterResponse:
     character = _get_character(db, character_id)
-    if (body.note_id is None) == (body.note is None):
+    if body.override:
+        if body.note_id is not None or body.note is not None:
+            raise HTTPException(
+                status_code=422, detail="An override move doesn't take a crisis note."
+            )
+    elif (body.note_id is None) == (body.note is None):
         raise HTTPException(
             status_code=422,
             detail="A move needs a crisis note: pick an existing note or write a new one.",
         )
 
+    # Override moves go through without a crisis note.
+    note: CrisisNote | None = None
     if body.note_id is not None:
         note = db.get(CrisisNote, body.note_id)
         if not note:
             raise HTTPException(status_code=404, detail="Note not found.")
-    else:
-        assert body.note is not None
+    elif body.note is not None:
         note = CrisisNote(
             character_id=character.id,
             period_id=active_period(db).id,
@@ -171,7 +186,7 @@ def move_character(
             to_y=body.y,
             from_region_id=from_region.id if from_region else None,
             to_region_id=to_region.id if to_region else None,
-            note_id=note.id,
+            note_id=note.id if note else None,
         )
     )
     character.x = body.x
@@ -222,6 +237,8 @@ def create_character(body: CharacterCreate, db: Session = Depends(get_db)) -> Ch
     db.add(character)
     try:
         db.flush()
+        # Everyone starts in Rivendell, in the starting group.
+        place_character(db, character, *default_start())
         group = default_group(db)
         if group is not None:
             assign(db, character, group.id)
@@ -234,63 +251,138 @@ def create_character(body: CharacterCreate, db: Session = Depends(get_db)) -> Ch
     return character
 
 
-@router.post("/bulk", response_model=BulkUploadResult)
-async def bulk_upload_characters(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-) -> BulkUploadResult:
-    content = await file.read()
-    names: list[str] = []
+# Character sheet columns, in the order used when the sheet has no header row.
+_SHEET_COLUMNS = ["name", "class", "a", "location", "image"]
+_HEADER_ALIASES = {
+    "name": ["name", "character", "charactername"],
+    "class": ["class", "race", "type"],
+    "a": ["a", "avalue", "curve", "corruptiona", "corruption"],
+    "location": ["location", "startlocation", "start", "startinglocation", "place"],
+    "image": ["image", "imagelink", "imageurl", "portrait", "avatar", "photo", "picture", "link"],
+}
 
-    filename = (file.filename or "").lower()
+
+@dataclass
+class _SheetRow:
+    line: int
+    values: dict[str, str]
+
+
+def _header_key(cell: object) -> str | None:
+    text = "".join(ch for ch in str(cell or "").lower() if ch.isalnum())
+    return next((col for col, aliases in _HEADER_ALIASES.items() if text in aliases), None)
+
+
+def _sheet_rows(table: list[list[object]]) -> list[_SheetRow]:
+    """Rows as {column: text}. A first row naming a "name" column is a
+    header; otherwise columns follow _SHEET_COLUMNS."""
+    table = [row for row in table if any(str(c or "").strip() for c in row)]
+    if not table:
+        return []
+    columns: list[str | None] = list(_SHEET_COLUMNS)
+    first = 0
+    header = [_header_key(c) for c in table[0]]
+    if "name" in header:
+        columns, first = header, 1
+    rows = []
+    for i, row in enumerate(table[first:], start=first + 1):
+        values = {
+            col: str(cell).strip()
+            for col, cell in zip(columns, row)
+            if col is not None and cell is not None and str(cell).strip()
+        }
+        rows.append(_SheetRow(line=i, values=values))
+    return rows
+
+
+def _read_sheet(filename: str, content: bytes) -> list[_SheetRow]:
     if filename.endswith(".json"):
         try:
             data = json.loads(content)
         except json.JSONDecodeError:
             raise HTTPException(status_code=422, detail="That file is not valid JSON.")
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, str):
-                    names.append(item)
-                elif isinstance(item, dict) and "name" in item:
-                    names.append(str(item["name"]))
-    elif filename.endswith(".xlsx"):
+        if not isinstance(data, list):
+            raise HTTPException(status_code=422, detail="The JSON must be a list of characters.")
+        rows = []
+        for i, item in enumerate(data, start=1):
+            if isinstance(item, str):
+                rows.append(_SheetRow(line=i, values={"name": item.strip()}))
+            elif isinstance(item, dict):
+                values = {}
+                for key, value in item.items():
+                    col = _header_key(key)
+                    if col and value is not None and str(value).strip():
+                        values[col] = str(value).strip()
+                rows.append(_SheetRow(line=i, values=values))
+        return rows
+    if filename.endswith(".csv"):
+        try:
+            text = content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=422, detail="The CSV must be UTF-8 text.")
+        return _sheet_rows([list(r) for r in csv.reader(io.StringIO(text))])
+    if filename.endswith(".xlsx"):
         try:
             wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
         except Exception:
             raise HTTPException(status_code=422, detail="That file is not a valid .xlsx workbook.")
         ws = wb.active
-        if ws is not None:
-            for row in ws.iter_rows(values_only=True):
-                if row and row[0] and isinstance(row[0], str):
-                    names.append(row[0].strip())
-    else:
-        raise HTTPException(status_code=422, detail="Only .json and .xlsx files are supported.")
+        return _sheet_rows([list(r) for r in ws.iter_rows(values_only=True)]) if ws else []
+    raise HTTPException(status_code=422, detail="Only .xlsx, .csv and .json files are supported.")
+
+
+@router.post("/bulk", response_model=BulkUploadResult)
+async def bulk_upload_characters(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> BulkUploadResult:
+    """Import a character sheet: name, class, a, start location, image link."""
+    rows = _read_sheet((file.filename or "").lower(), await file.read())
 
     created = skipped = 0
-    new_characters: list[Character] = []
-    existing_names = {
-        r[0] for r in db.query(Character.name).all()
-    }
-    for name in names:
-        name = name.strip()
-        if not name:
-            continue
-        if name in existing_names:
-            skipped += 1
-        else:
-            new_character = Character(name=name)
-            db.add(new_character)
-            new_characters.append(new_character)
+    errors: list[str] = []
+    existing_names = {r[0] for r in db.query(Character.name).all()}
+    group = default_group(db)
+    try:
+        for row in rows:
+            name = row.values.get("name", "")
+            if not name:
+                errors.append(f"Row {row.line}: missing a name.")
+                continue
+            if name in existing_names:
+                skipped += 1
+                continue
+            race = corruption.normalize_class(row.values.get("class"))
+            if race is None:
+                errors.append(f"Row {row.line} ({name}): unknown class “{row.values['class']}”.")
+                continue
+            a: float | None = None
+            if row.values.get("a"):
+                try:
+                    a = float(row.values["a"])
+                except ValueError:
+                    a = None
+                if a is None or not 0 < a <= 100:
+                    errors.append(f"Row {row.line} ({name}): a must be a number above 0 and up to 100.")
+                    continue
+            location = row.values.get("location")
+            point = find_location(db, location)
+            if location and point is None:
+                errors.append(f"Row {row.line} ({name}): unknown location “{location}”, placed in Rivendell.")
+
+            character = Character(
+                name=name,
+                race=race,
+                corruption_a=a,
+                avatar_url=normalize_image_url(row.values.get("image")),
+            )
+            db.add(character)
+            db.flush()
+            place_character(db, character, *(point or default_start()))
+            if group is not None:
+                assign(db, character, group.id)
             existing_names.add(name)
             created += 1
-
-    try:
-        group = default_group(db)
-        if group is not None and new_characters:
-            db.flush()
-            for new_character in new_characters:
-                assign(db, new_character, group.id)
         db.commit()
     except IntegrityError:
         # Another request imported/created an overlapping name concurrently.
@@ -299,7 +391,7 @@ async def bulk_upload_characters(
             status_code=409,
             detail="Some of these characters were just added by someone else. Try again.",
         )
-    return BulkUploadResult(created=created, skipped=skipped)
+    return BulkUploadResult(created=created, skipped=skipped, errors=errors)
 
 
 @router.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)

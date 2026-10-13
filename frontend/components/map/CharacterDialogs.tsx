@@ -118,7 +118,7 @@ export function EditCharacterDialog({
         <DialogContent className="rounded-[20px] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Edit character</DialogTitle>
-            <DialogDescription className="sr-only">Edit name, race and portrait.</DialogDescription>
+            <DialogDescription className="sr-only">Edit name, class and portrait.</DialogDescription>
           </DialogHeader>
           <form
             className="space-y-3"
@@ -141,7 +141,7 @@ export function EditCharacterDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="char-race" className="text-xs">
-                Race
+                Class
               </Label>
               <Select value={race} onValueChange={setRace}>
                 <SelectTrigger id="char-race" className="data-[size=default]:h-10 w-full">
@@ -158,12 +158,12 @@ export function EditCharacterDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="char-avatar" className="text-xs">
-                Portrait image URL
+                Portrait (Google Drive link or image URL)
               </Label>
               <Input
                 id="char-avatar"
                 type="url"
-                placeholder="https://…"
+                placeholder="https://drive.google.com/file/d/…"
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 className="h-10"

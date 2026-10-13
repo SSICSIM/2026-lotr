@@ -12,7 +12,7 @@ export interface MapPoint {
 export const MAP_IMAGE = {
   src: "/lotr/middle-earth-map.jpg",
   width: 4096,
-  height: 2234,
+  height: 3075,
 };
 
 function contains(polygon: [number, number][], { x, y }: MapPoint): boolean {

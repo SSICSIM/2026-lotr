@@ -12,6 +12,7 @@ from app.models.crisis_note import (
     Character,
     CrisisNote,
     CrisisPeriod,
+    NoteAction,
     NoteType,
     Priority,
     note_characters,
@@ -33,6 +34,15 @@ router = APIRouter(prefix="/notes", tags=["notes"])
 def _check_conflict(db: Session, conflict_id: int | None) -> None:
     if conflict_id is not None and not db.get(Conflict, conflict_id):
         raise HTTPException(status_code=404, detail="Conflict not found.")
+
+
+def _custom_action(action: NoteAction, label: str | None) -> str | None:
+    """The label a CUSTOM action needs; other actions don't keep one."""
+    if action != NoteAction.CUSTOM:
+        return None
+    if not label or not label.strip():
+        raise HTTPException(status_code=422, detail="Describe the custom action.")
+    return label.strip()
 
 
 @router.get("/analytics", response_model=AnalyticsSummary)
@@ -156,6 +166,7 @@ def create_note(body: CrisisNoteCreate, db: Session = Depends(get_db)) -> Crisis
         priority=body.priority,
         note_type=body.note_type,
         action=body.action,
+        custom_action=_custom_action(body.action, body.custom_action),
         conflict_id=body.conflict_id,
         deadline_at=(
             datetime.now(timezone.utc) + timedelta(minutes=body.timer_minutes)
@@ -187,11 +198,10 @@ def update_note(note_id: int, body: CrisisNoteUpdate, db: Session = Depends(get_
 
     author_ids = updates.pop("author_ids", None)
     target_ids = updates.pop("target_ids", None)
-    resolved = updates.pop("resolved", None)
-    if resolved is not None:
-        note.resolved_at = datetime.now(timezone.utc) if resolved else None
+    custom_action = updates.pop("custom_action", note.custom_action)
     for field, value in updates.items():
         setattr(note, field, value)
+    note.custom_action = _custom_action(note.action, custom_action)
     if author_ids is not None or target_ids is not None:
         require_characters(db, [*(author_ids or []), *(target_ids or [])])
         db.flush()

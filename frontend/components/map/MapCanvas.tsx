@@ -307,7 +307,10 @@ function FitCover() {
       // Round up to the zoom step, or Leaflet snaps down and leaves bands at the edges.
       const cover =
         Math.ceil(Math.max(Math.log2(size.x / MAP_IMAGE.width), Math.log2(size.y / MAP_IMAGE.height)) * 4) / 4;
-      map.setMinZoom(Math.min(cover, Math.log2(size.x / MAP_IMAGE.width)) - 0.5);
+      // Allow zooming out past "whole map fits" (contain), so the full map is
+      // visible even with the sidebar covering part of the screen.
+      const contain = Math.min(Math.log2(size.x / MAP_IMAGE.width), Math.log2(size.y / MAP_IMAGE.height));
+      map.setMinZoom(Math.floor((Math.min(cover, contain) - 1) * 4) / 4);
       if (!userMoved) map.setView(IMAGE_BOUNDS.getCenter(), cover, { animate: false });
     };
     const observer = new ResizeObserver(fit);
@@ -451,13 +454,15 @@ export default function MapCanvas({
     }))
     .filter((b) => b.positions.length > 0);
 
+  // Background is the map's own sea colour, so panning past the edge shows no hard border.
   return (
-    <div className="absolute inset-0 isolate bg-[#3a2e22]">
+    <div className="absolute inset-0 isolate bg-[#271613]">
       <MapContainer
         ref={setMap}
         crs={L.CRS.Simple}
         bounds={IMAGE_BOUNDS}
-        maxBounds={IMAGE_BOUNDS.pad(0.1)}
+        // Generous so the map can be dragged out from under the sidebar.
+        maxBounds={IMAGE_BOUNDS.pad(0.5)}
         maxBoundsViscosity={0.8}
         zoomSnap={0.25}
         zoomDelta={0.5}

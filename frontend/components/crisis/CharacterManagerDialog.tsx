@@ -113,7 +113,7 @@ export function CharacterManagerDialog({ open, onOpenChange }: Props) {
           <input
             ref={fileRef}
             type="file"
-            accept=".json,.xlsx"
+            accept=".xlsx,.csv,.json"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -125,9 +125,12 @@ export function CharacterManagerDialog({ open, onOpenChange }: Props) {
             onClick={() => fileRef.current?.click()}
           >
             <Upload className="mr-2 h-3.5 w-3.5" />
-            {uploading ? "Importing…" : "Import from .xlsx or .json"}
+            {uploading ? "Importing…" : "Import sheet (.xlsx, .csv or .json)"}
           </Button>
         </div>
+        <p className="text-muted-foreground text-[11px] leading-4">
+          Columns: name, class, a, start location, image link
+        </p>
         </DialogContent>
       </Dialog>
 

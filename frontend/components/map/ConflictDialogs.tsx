@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useActivePeriod } from "@/hooks/useCrisisPeriods";
-import { useCreateConflict, useMapCharacters, useResolveConflict } from "@/hooks/useMap";
+import { useCreateConflict, useGroups, useMapCharacters, useResolveConflict } from "@/hooks/useMap";
 import type { ConflictResponse } from "@/types/api";
 import { CharacterMultiSelect } from "./CharacterMultiSelect";
 import { NO_TIMER, TimerSelect } from "./NoteDialogs";
@@ -44,6 +44,7 @@ export function CreateConflictDialog({
   onCreated?: (conflict: ConflictResponse) => void;
 }) {
   const { data: characters = [] } = useMapCharacters();
+  const { data: groups = [] } = useGroups();
   const { data: period } = useActivePeriod();
   const { mutate, isPending } = useCreateConflict();
   const [name, setName] = useState("");
@@ -107,6 +108,7 @@ export function CreateConflictDialog({
             <CharacterMultiSelect
               id="conflict-parties"
               characters={characters}
+              groups={groups}
               value={partyIds}
               onChange={setPartyIds}
             />
@@ -138,6 +140,7 @@ export function CreateConflictDialog({
 }
 
 const NO_WINNER = "__none__";
+const CUSTOM_OUTCOME = "__custom__";
 
 export function ResolveConflictDialog({
   conflict,
@@ -148,15 +151,18 @@ export function ResolveConflictDialog({
 }) {
   const { data: period } = useActivePeriod();
   const { mutate, isPending } = useResolveConflict();
-  const [winner, setWinner] = useState("");
+  const [outcome, setOutcome] = useState("");
+  const [customOutcome, setCustomOutcome] = useState("");
   const [summary, setSummary] = useState("");
 
   useEffect(() => {
-    setWinner("");
+    setOutcome("");
+    setCustomOutcome("");
     setSummary("");
   }, [conflict]);
 
-  const valid = !!period && !!winner && !!summary.trim();
+  const custom = outcome === CUSTOM_OUTCOME;
+  const valid = !!period && !!outcome && (!custom || !!customOutcome.trim()) && !!summary.trim();
 
   return (
     <Dialog open={!!conflict} onOpenChange={onOpenChange}>
@@ -164,7 +170,7 @@ export function ResolveConflictDialog({
         <DialogContent className="rounded-[20px] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Resolve {conflict.name}</DialogTitle>
-            <DialogDescription className="sr-only">Pick a winner and summarise the outcome.</DialogDescription>
+            <DialogDescription className="sr-only">Pick the outcome and summarise what happened.</DialogDescription>
           </DialogHeader>
           <form
             className="space-y-3"
@@ -175,7 +181,8 @@ export function ResolveConflictDialog({
                 {
                   id: conflict.id,
                   body: {
-                    winner_id: winner === NO_WINNER ? null : Number(winner),
+                    winner_id: outcome === NO_WINNER || custom ? null : Number(outcome),
+                    outcome_label: custom ? customOutcome.trim() : null,
                     outcome_summary: summary.trim(),
                   },
                 },
@@ -184,22 +191,34 @@ export function ResolveConflictDialog({
             }}
           >
             <div className="space-y-1">
-              <Label htmlFor="conflict-winner" className="text-xs">
-                Winner
+              <Label htmlFor="conflict-outcome" className="text-xs">
+                Outcome
               </Label>
-              <Select value={winner} onValueChange={setWinner}>
-                <SelectTrigger id="conflict-winner" className="data-[size=default]:h-10 w-full text-xs">
+              <Select value={outcome} onValueChange={setOutcome}>
+                <SelectTrigger id="conflict-outcome" className="data-[size=default]:h-10 w-full text-xs">
                   <SelectValue placeholder="Select option" />
                 </SelectTrigger>
                 <SelectContent>
                   {conflict.parties.map((p) => (
                     <SelectItem key={p.id} value={String(p.id)}>
-                      {p.name}
+                      {p.name} prevailed
                     </SelectItem>
                   ))}
                   <SelectItem value={NO_WINNER}>No clear winner</SelectItem>
+                  <SelectItem value={CUSTOM_OUTCOME}>Custom outcome…</SelectItem>
                 </SelectContent>
               </Select>
+              {custom ? (
+                <Input
+                  aria-label="Custom outcome"
+                  placeholder="e.g. A truce is called"
+                  value={customOutcome}
+                  onChange={(e) => setCustomOutcome(e.target.value)}
+                  maxLength={255}
+                  autoFocus
+                  className="h-10 text-xs md:text-xs"
+                />
+              ) : null}
             </div>
             <div className="space-y-1">
               <Label htmlFor="conflict-summary" className="text-xs">

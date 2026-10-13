@@ -4,7 +4,7 @@ export interface HealthResponse {
 
 export type Priority = "HIGH" | "MEDIUM" | "LOW";
 export type NoteType = "PRIVATE_DIRECTIVE" | "PUBLIC_DIRECTIVE" | "CRISIS_UPDATE";
-export type NoteAction = "NONE" | "MOVE" | "MOBILIZE" | "CONFLICT" | "RING";
+export type NoteAction = "NONE" | "MOVE" | "MOBILIZE" | "CONFLICT" | "RING" | "CUSTOM";
 
 // ── Characters ───────────────────────────────────────────────────────────────
 
@@ -59,6 +59,8 @@ export interface MoveRequest {
   y: number;
   note_id?: number;
   note?: InlineNote;
+  // Move without a crisis note.
+  override?: boolean;
   discover_region?: boolean;
 }
 
@@ -121,6 +123,8 @@ export interface ConflictResponse {
   status: ConflictStatus;
   parties: CharacterResponse[];
   winner_id: number | null;
+  // Custom verdict, set instead of a winner.
+  outcome_label: string | null;
   outcome_summary: string | null;
   created_at: string;
   resolved_at: string | null;
@@ -186,6 +190,7 @@ export interface GroupView {
 
 export interface ConflictResolve {
   winner_id: number | null;
+  outcome_label?: string | null;
   outcome_summary: string;
 }
 
@@ -196,6 +201,7 @@ export interface CharacterCreate {
 export interface BulkUploadResult {
   created: number;
   skipped: number;
+  errors: string[];
 }
 
 // ── Crisis Periods ────────────────────────────────────────────────────────────
@@ -224,6 +230,8 @@ export interface CrisisNoteResponse {
   priority: Priority;
   note_type: NoteType;
   action: NoteAction;
+  // Staff-typed label when action is CUSTOM.
+  custom_action: string | null;
   conflict_id: number | null;
   // Co-authors beyond `character`, and characters the note is aimed at.
   authors: CharacterResponse[];
@@ -245,6 +253,7 @@ export interface CrisisNoteCreate {
   priority: Priority;
   note_type: NoteType;
   action?: NoteAction;
+  custom_action?: string;
   conflict_id?: number | null;
   author_ids?: number[];
   target_ids?: number[];
@@ -259,11 +268,11 @@ export interface CrisisNoteUpdate {
   priority?: Priority;
   note_type?: NoteType;
   action?: NoteAction;
+  custom_action?: string | null;
   conflict_id?: number | null;
   author_ids?: number[];
   target_ids?: number[];
   deadline_at?: string | null;
-  resolved?: boolean;
 }
 
 export interface NoteFilters {
