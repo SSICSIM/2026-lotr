@@ -27,6 +27,16 @@ if (fs.existsSync(rootEnvPath)) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Private staff tools: keep every page (including /login and any public
+  // screens) out of search engines, even for bots that ignore robots.txt.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],
+      },
+    ];
+  },
   // The dev-mode "N" badge sits on top of the map's zoom control.
   devIndicators: false,
   images: {
