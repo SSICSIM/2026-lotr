@@ -37,8 +37,9 @@ export interface MoveRequestState {
 }
 
 /**
- * Every move needs a crisis note (existing or new) before it goes through;
- * moving into an undiscovered region then asks whether to reveal it.
+ * Every move needs a crisis note (existing or new) before it goes through,
+ * unless staff override it; moving into an undiscovered region then asks
+ * whether to reveal it.
  */
 export function MoveCharacterDialog({
   request,
@@ -63,10 +64,13 @@ export function MoveCharacterDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
+  // Staff skipped the crisis note for this move.
+  const [override, setOverride] = useState(false);
 
   useEffect(() => {
     if (!request) return;
     setStep("note");
+    setOverride(false);
     setMode("new");
     setNoteId("");
     setTitle("");
@@ -89,22 +93,25 @@ export function MoveCharacterDialog({
     onClose();
   }
 
-  function submit(discover: boolean) {
+  function submit(discover: boolean, withoutNote = override) {
     if (!request) return;
     const body: MoveRequest = {
       ...request.destination,
       discover_region: discover,
-      ...(mode === "existing"
-        ? { note_id: Number(noteId) }
-        : { note: { title: title.trim(), description: description.trim(), priority } }),
+      ...(withoutNote
+        ? { override: true }
+        : mode === "existing"
+          ? { note_id: Number(noteId) }
+          : { note: { title: title.trim(), description: description.trim(), priority } }),
     };
     mutate({ id: request.character.id, body }, { onSuccess: onClose });
   }
 
-  function next() {
-    if (!noteValid) return;
+  function next(withoutNote = false) {
+    if (!withoutNote && !noteValid) return;
+    setOverride(withoutNote);
     if (destination && !knownToMover) setStep("discover");
-    else submit(false);
+    else submit(false, withoutNote);
   }
 
   return (
@@ -205,13 +212,22 @@ export function MoveCharacterDialog({
                 </div>
               )}
 
-              <DialogFooter>
-                <Button variant="outline" onClick={cancel}>
-                  Cancel
+              <DialogFooter className="sm:justify-between">
+                <Button
+                  variant="ghost"
+                  onClick={() => next(true)}
+                  disabled={isPending}
+                >
+                  Override: move without note
                 </Button>
-                <Button onClick={next} disabled={!noteValid || isPending}>
-                  {isPending ? "Moving…" : "Move"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={cancel}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => next()} disabled={!noteValid || isPending}>
+                    {isPending ? "Moving…" : "Move"}
+                  </Button>
+                </div>
               </DialogFooter>
             </>
           ) : (

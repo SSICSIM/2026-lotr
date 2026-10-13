@@ -12,6 +12,7 @@ import {
   ShieldIcon,
   SwordsIcon,
   TimerIcon,
+  WandSparklesIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,14 +38,12 @@ import type {
   Priority,
 } from "@/types/api";
 
+// The four character classes.
 export const RACE_LABELS: Record<string, string> = {
-  HOBBIT: "Hobbit",
-  MAN: "Man",
-  ELF: "Elf",
-  DWARF: "Dwarf",
-  WIZARD: "Wizard",
-  ORC: "Orc",
-  OTHER: "Other",
+  MAN: "Men",
+  ELF: "Elves",
+  DWARF: "Dwarves",
+  WIZARD_HOBBIT: "Wizards & Hobbits",
 };
 
 export function raceLabel(race: string) {
@@ -338,6 +337,11 @@ export function NoteTags({ note }: { note: CrisisNoteResponse }) {
       {note.action === "RING" ? (
         <Tag tone="orange" icon={CircleDotIcon}>
           Ring
+        </Tag>
+      ) : null}
+      {note.action === "CUSTOM" && note.custom_action ? (
+        <Tag tone="outline" icon={WandSparklesIcon}>
+          {note.custom_action}
         </Tag>
       ) : null}
       {note.resolved_at ? (

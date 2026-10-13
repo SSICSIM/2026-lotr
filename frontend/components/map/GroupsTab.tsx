@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CopyIcon, MonitorIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CopyIcon, MergeIcon, MonitorIcon, PlusIcon, RefreshCwIcon, RadarIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -38,8 +38,10 @@ import {
   useGameState,
   useGroups,
   useMapCharacters,
+  useMergeGroups,
   useMoveToGroup,
   useRotateScreenLink,
+  useSyncGroups,
   useUpdateGroup,
 } from "@/hooks/useMap";
 import { cn } from "@/lib/utils";
@@ -123,21 +125,35 @@ export function GroupsTab() {
   const { data: characters = [] } = useMapCharacters();
   const { data: game } = useGameState();
   const [creating, setCreating] = useState(false);
+  const { mutate: syncGroups, isPending: syncing } = useSyncGroups();
   const ungrouped = characters.filter((c) => c.group_id == null);
 
   return (
     <div className="space-y-5">
       <SectionHeading title="Groups">
-        <Button size="sm" onClick={() => setCreating(true)}>
-          <PlusIcon />
-          Split off a group
-        </Button>
+        <div className="flex gap-1.5">
+          {groups.length > 1 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={syncing}
+              onClick={() => syncGroups({ groupId: null, otherGroupId: null })}
+            >
+              <RadarIcon />
+              Sync all
+            </Button>
+          ) : null}
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <PlusIcon />
+            Split off a group
+          </Button>
+        </div>
       </SectionHeading>
 
       <ul className="space-y-3">
         {groups.map((g, i) => (
           <li key={g.id}>
-            <GroupCard group={g} characters={characters} isStarting={i === 0} />
+            <GroupCard group={g} groups={groups} characters={characters} isStarting={i === 0} />
           </li>
         ))}
       </ul>
@@ -160,10 +176,12 @@ export function GroupsTab() {
 
 function GroupCard({
   group,
+  groups,
   characters,
   isStarting,
 }: {
   group: GroupResponse;
+  groups: GroupResponse[];
   characters: MapCharacter[];
   isStarting: boolean;
 }) {
@@ -171,7 +189,13 @@ function GroupCard({
   const { mutate: moveToGroup } = useMoveToGroup();
   const { mutate: updateGroup } = useUpdateGroup();
   const { mutate: deleteGroup, isPending } = useDeleteGroup();
+  const { mutate: syncGroups, isPending: syncing } = useSyncGroups();
+  const { mutate: mergeGroups, isPending: merging } = useMergeGroups();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<GroupResponse | null>(null);
+  const otherGroups = groups.filter((g) => g.id !== group.id);
+  // The starting group can't be folded into another one.
+  const mergeable = otherGroups.filter((g) => g.id !== groups[0]?.id);
   const [name, setName] = useState(group.name);
   useEffect(() => setName(group.name), [group.name]);
 
@@ -243,6 +267,68 @@ function GroupCard({
         <ScreenLinkButtons token={group.screen_token} groupId={group.id} />
       </div>
 
+      {otherGroups.length ? (
+        <div className="bg-muted/40 flex items-center gap-1.5 border-t px-3 py-2">
+          <Select
+            value=""
+            disabled={syncing}
+            onValueChange={(v) => syncGroups({ groupId: group.id, otherGroupId: Number(v) })}
+          >
+            <SelectTrigger size="sm" className="bg-background h-7 flex-1 text-xs" aria-label="Sync with another group">
+              <RadarIcon className="size-3.5" />
+              <SelectValue placeholder="Sync positions with…" />
+            </SelectTrigger>
+            <SelectContent>
+              {otherGroups.map((g) => (
+                <SelectItem key={g.id} value={String(g.id)}>
+                  <span className="size-2 rounded-full" style={{ backgroundColor: g.color }} />
+                  {g.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {mergeable.length ? (
+            <Select value="" onValueChange={(v) => setMergeTarget(mergeable.find((g) => String(g.id) === v) ?? null)}>
+              <SelectTrigger size="sm" className="bg-background h-7 flex-1 text-xs" aria-label="Merge another group in">
+                <MergeIcon className="size-3.5" />
+                <SelectValue placeholder="Merge in…" />
+              </SelectTrigger>
+              <SelectContent>
+                {mergeable.map((g) => (
+                  <SelectItem key={g.id} value={String(g.id)}>
+                    <span className="size-2 rounded-full" style={{ backgroundColor: g.color }} />
+                    {g.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+        </div>
+      ) : null}
+
+      <AlertDialog open={!!mergeTarget} onOpenChange={(open) => !open && setMergeTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Merge {mergeTarget?.name} into {group.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Everyone in {mergeTarget?.name} joins {group.name}, along with the lands they discovered.{" "}
+              {mergeTarget?.name} and its screen link are removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={merging}
+              onClick={() => mergeTarget && mergeGroups({ groupId: group.id, otherGroupId: mergeTarget.id })}
+            >
+              Merge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -301,13 +387,17 @@ function CreateGroupDialog({
   const [name, setName] = useState("");
   const [color, setColor] = useState(GROUP_COLORS[1]);
   const [memberIds, setMemberIds] = useState<number[]>([]);
+  // Read through a ref: usedColors is rebuilt on every poll, and depending on
+  // it would wipe the form while staff are typing.
+  const usedColorsRef = useRef(usedColors);
+  usedColorsRef.current = usedColors;
 
   useEffect(() => {
     if (!open) return;
     setName("");
     setMemberIds([]);
-    setColor(GROUP_COLORS.find((c) => !usedColors.includes(c)) ?? GROUP_COLORS[1]);
-  }, [open, usedColors]);
+    setColor(GROUP_COLORS.find((c) => !usedColorsRef.current.includes(c)) ?? GROUP_COLORS[1]);
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -40,6 +40,11 @@ export const groupsService = {
   delete: (id: number) => apiClient.delete<void>(`/api/groups/${id}`),
   rotateScreenToken: (id: number) => apiClient.post<GroupResponse>(`/api/groups/${id}/screen-token`, {}),
   view: (id: number) => apiClient.get<GroupView>(`/api/groups/${id}/view`),
+  sync: (id: number, other_group_id: number) =>
+    apiClient.post<{ sightings: number }>(`/api/groups/${id}/sync`, { other_group_id }),
+  syncAll: () => apiClient.post<{ sightings: number }>("/api/groups/sync-all", {}),
+  merge: (id: number, other_group_id: number) =>
+    apiClient.post<GroupResponse>(`/api/groups/${id}/merge`, { other_group_id }),
 };
 
 export const conflictsService = {

@@ -68,9 +68,10 @@ class MoveRequest(BaseModel):
     x: float = Field(ge=0, le=1)
     y: float = Field(ge=0, le=1)
     # Every move must cite a crisis note: either an existing one or a new
-    # one written in the move dialog.
+    # one written in the move dialog — unless staff override that.
     note_id: int | None = None
     note: InlineNote | None = None
+    override: bool = False
     discover_region: bool = False
 
 
@@ -175,6 +176,15 @@ class GroupResponse(BaseModel):
     screen_token: str
 
 
+class GroupLink(BaseModel):
+    other_group_id: int
+
+
+class SyncResult(BaseModel):
+    # Characters newly placed on some group's map by the sync.
+    sightings: int
+
+
 class LastSeen(BaseModel):
     character_id: int
     x: float
@@ -257,6 +267,8 @@ class ConflictUpdate(BaseModel):
 
 class ConflictResolve(BaseModel):
     winner_id: int | None = None
+    # Custom verdict instead of "<winner> prevailed" / "No clear victor".
+    outcome_label: str | None = Field(default=None, max_length=255)
     outcome_summary: str = Field(min_length=1)
 
 
@@ -268,6 +280,7 @@ class ConflictResponse(BaseModel):
     status: ConflictStatus
     parties: list[CharacterResponse]
     winner_id: int | None
+    outcome_label: str | None
     outcome_summary: str | None
     created_at: datetime
     resolved_at: datetime | None
@@ -305,6 +318,7 @@ class CrisisNoteCreate(BaseModel):
     priority: Priority
     note_type: NoteType
     action: NoteAction = NoteAction.NONE
+    custom_action: str | None = Field(default=None, max_length=255)
     conflict_id: int | None = None
     # Co-authors beyond character_id, and characters the note is aimed at.
     author_ids: list[int] = []
@@ -321,11 +335,11 @@ class CrisisNoteUpdate(BaseModel):
     priority: Priority | None = None
     note_type: NoteType | None = None
     action: NoteAction | None = None
+    custom_action: str | None = Field(default=None, max_length=255)
     conflict_id: int | None = None
     author_ids: list[int] | None = None
     target_ids: list[int] | None = None
     deadline_at: datetime | None = None
-    resolved: bool | None = None
 
 
 class CrisisNoteResponse(BaseModel):
@@ -340,6 +354,7 @@ class CrisisNoteResponse(BaseModel):
     priority: Priority
     note_type: NoteType
     action: NoteAction
+    custom_action: str | None
     conflict_id: int | None
     authors: list[CharacterResponse]
     targets: list[CharacterResponse]
@@ -374,7 +389,10 @@ class StaffNoteResponse(BaseModel):
 
 class BulkUploadResult(BaseModel):
     created: int
+    # Rows whose name already exists.
     skipped: int
+    # Rows that couldn't be imported, with the reason.
+    errors: list[str] = []
 
 
 # ── Analytics ────────────────────────────────────────────────────────────────

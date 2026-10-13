@@ -28,7 +28,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateNote, useDeleteNote, useUpdateNote } from "@/hooks/useCrisisNotes";
 import { useActivePeriod } from "@/hooks/useCrisisPeriods";
-import { useMapCharacters } from "@/hooks/useMap";
+import { useGroups, useMapCharacters } from "@/hooks/useMap";
 import { cn } from "@/lib/utils";
 import type { CrisisNoteResponse, NoteAction, NoteType, Priority } from "@/types/api";
 import { CharacterMultiSelect } from "./CharacterMultiSelect";
@@ -83,6 +83,7 @@ export const ACTION_LABELS: Record<NoteAction, string> = {
   MOBILIZE: "Mobilize army",
   CONFLICT: "Start conflict",
   RING: "Ring",
+  CUSTOM: "Custom…",
 };
 
 export function noteAuthors(note: CrisisNoteResponse) {
@@ -108,6 +109,7 @@ export function CrisisNoteDialog({
   onCreated?: (note: CrisisNoteResponse) => void;
 }) {
   const { data: characters = [] } = useMapCharacters();
+  const { data: groups = [] } = useGroups();
   const { data: period } = useActivePeriod();
   const { mutate, isPending } = useCreateNote();
 
@@ -117,6 +119,7 @@ export function CrisisNoteDialog({
   const [description, setDescription] = useState("");
   const [staffNotes, setStaffNotes] = useState("");
   const [action, setAction] = useState<NoteAction>("NONE");
+  const [customAction, setCustomAction] = useState("");
   const [targetIds, setTargetIds] = useState<number[]>([]);
   const [noteType, setNoteType] = useState<NoteType>("PRIVATE_DIRECTIVE");
   const [timer, setTimer] = useState(NO_TIMER);
@@ -133,9 +136,16 @@ export function CrisisNoteDialog({
     setAuthorIds(prefill?.authorIds ?? []);
     setTargetIds(prefill?.targetIds ?? []);
     setAction(prefill?.action ?? "NONE");
+    setCustomAction("");
   }, [open, prefill]);
 
-  const valid = !!period && !!title.trim() && !!description.trim() && !!priority && authorIds.length > 0;
+  const valid =
+    !!period &&
+    !!title.trim() &&
+    !!description.trim() &&
+    !!priority &&
+    authorIds.length > 0 &&
+    (action !== "CUSTOM" || !!customAction.trim());
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -151,6 +161,7 @@ export function CrisisNoteDialog({
         priority: priority as Priority,
         note_type: noteType,
         action,
+        custom_action: action === "CUSTOM" ? customAction.trim() : undefined,
         conflict_id: prefill?.conflictId,
         author_ids: coAuthors,
         target_ids: targetIds,
@@ -275,13 +286,24 @@ export function CrisisNoteDialog({
                   <SelectValue placeholder="Select option" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(["NONE", "MOVE", "MOBILIZE", "CONFLICT"] as NoteAction[]).map((a) => (
+                  {(["NONE", "MOVE", "MOBILIZE", "CONFLICT", "CUSTOM"] as NoteAction[]).map((a) => (
                     <SelectItem key={a} value={a}>
                       {ACTION_LABELS[a]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {action === "CUSTOM" ? (
+                <Input
+                  aria-label="Custom action"
+                  placeholder="e.g. Light the beacons"
+                  value={customAction}
+                  onChange={(e) => setCustomAction(e.target.value)}
+                  maxLength={255}
+                  autoFocus
+                  className="h-10 text-xs md:text-xs"
+                />
+              ) : null}
             </div>
             <div className="space-y-1">
               <Label htmlFor="note-targets" className={label}>
@@ -290,6 +312,7 @@ export function CrisisNoteDialog({
               <CharacterMultiSelect
                 id="note-targets"
                 characters={characters}
+                groups={groups}
                 value={targetIds}
                 onChange={setTargetIds}
               />
@@ -374,19 +397,6 @@ export function NoteDetailDialog({
                     +5 min
                   </Button>
                 ) : null}
-                <Button
-                  variant="outline"
-                  className={outlineButton}
-                  disabled={updating}
-                  onClick={() =>
-                    updateNote(
-                      { id: note.id, body: { resolved: !note.resolved_at } },
-                      { onSuccess: () => onOpenChange(false) }
-                    )
-                  }
-                >
-                  {note.resolved_at ? "Reopen" : "Resolve"}
-                </Button>
                 <Button variant="outline" className={cn(outlineButton, "w-[66px]")} onClick={() => setEditing(note)}>
                   Edit
                 </Button>

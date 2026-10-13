@@ -95,6 +95,8 @@ class Conflict(Base):
         ForeignKey("characters.id", ondelete="SET NULL"), nullable=True
     )
     outcome_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Staff-written verdict when the outcome isn't "<party> prevailed".
+    outcome_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -200,3 +202,23 @@ class GroupRegion(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     revealed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class GroupSighting(Base):
+    """Where one group saw a character when staff synced them with another
+    group. A one-off snapshot: later moves aren't shown until the next sync."""
+
+    __tablename__ = "group_sightings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    viewer_group_id: Mapped[int] = mapped_column(
+        ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    character_id: Mapped[int] = mapped_column(
+        ForeignKey("characters.id", ondelete="CASCADE"), nullable=False
+    )
+    x: Mapped[float] = mapped_column(Float, nullable=False)
+    y: Mapped[float] = mapped_column(Float, nullable=False)
+    seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

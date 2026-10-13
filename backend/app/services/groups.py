@@ -7,9 +7,10 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models.crisis_note import Character
-from app.models.map import Group, GroupMembership, Movement
+from app.models.map import Group, GroupMembership, GroupSighting, Movement
 from app.schemas import LastSeen
 from app.services.corruption import now_utc
+from app.services.discovery import share_knowledge
 
 
 def default_group(db: Session) -> Group | None:
@@ -34,6 +35,38 @@ def assign(db: Session, character: Character, group_id: int | None, at: datetime
         db.add(GroupMembership(character_id=character.id, group_id=group_id, joined_at=at))
 
 
+def sync(db: Session, a: Group, b: Group, at: datetime | None = None) -> int:
+    """Show each group where the other group's members are right now.
+
+    A snapshot, not a live link: later moves stay hidden until the next sync.
+    Returns how many sightings were recorded."""
+    at = at or now_utc()
+    count = 0
+    for viewer, others in ((a, b), (b, a)):
+        for c in others.members:
+            if c.x is None or c.y is None:
+                continue
+            db.add(GroupSighting(viewer_group_id=viewer.id, character_id=c.id, x=c.x, y=c.y, seen_at=at))
+            count += 1
+    return count
+
+
+def absorb(db: Session, source: Group, target: Group) -> None:
+    """Fold ``source`` into ``target`` and delete it: its members, the lands
+    it knew and what it had seen of others all carry over."""
+    share_knowledge(db, [source.id], target.id)
+    db.query(GroupSighting).filter(GroupSighting.viewer_group_id == source.id).update(
+        {GroupSighting.viewer_group_id: target.id}
+    )
+    for character in list(source.members):
+        assign(db, character, target.id)
+    # Reload the (now empty) member list so deleting the group doesn't null
+    # out the members' new group_id via the stale relationship.
+    db.flush()
+    db.expire(source, ["members"])
+    db.delete(source)
+
+
 def _position_at(movements: list[Movement], at: datetime) -> tuple[float, float] | None:
     """Where a character was at ``at``, from their (time-ordered) moves."""
     position = None
@@ -46,9 +79,10 @@ def _position_at(movements: list[Movement], at: datetime) -> tuple[float, float]
 
 def last_seen(db: Session, group: Group) -> list[LastSeen]:
     """For everyone outside ``group``: where they were the last time they
-    travelled in the same group as any current member.
+    travelled in the same group as any current member, or where the group
+    was shown them by a sync — whichever is more recent.
 
-    Characters who never shared a group with this one stay unknown.
+    Characters the group never travelled with or synced with stay unknown.
     """
     now = now_utc()
     rows = db.query(GroupMembership).all()
@@ -58,6 +92,14 @@ def last_seen(db: Session, group: Group) -> list[LastSeen]:
 
     member_ids = {c.id for c in group.members}
     member_intervals = [iv for cid in member_ids for iv in intervals.get(cid, [])]
+
+    sightings: dict[int, GroupSighting] = {}
+    for s in (
+        db.query(GroupSighting)
+        .filter(GroupSighting.viewer_group_id == group.id)
+        .order_by(GroupSighting.seen_at)
+    ):
+        sightings[s.character_id] = s  # latest wins
 
     result: list[LastSeen] = []
     outsiders = db.query(Character).filter(Character.id.notin_(member_ids) if member_ids else True).all()
@@ -70,6 +112,12 @@ def last_seen(db: Session, group: Group) -> list[LastSeen]:
                     overlap_end = min(end, mend)
                     if together_until is None or overlap_end > together_until:
                         together_until = overlap_end
+        sighting = sightings.get(other.id)
+        if sighting is not None and (together_until is None or sighting.seen_at >= together_until):
+            result.append(
+                LastSeen(character_id=other.id, x=sighting.x, y=sighting.y, seen_at=sighting.seen_at)
+            )
+            continue
         if together_until is None:
             continue
         moves = (

@@ -49,6 +49,8 @@ class NoteAction(str, enum.Enum):
     MOBILIZE = "MOBILIZE"
     CONFLICT = "CONFLICT"
     RING = "RING"
+    # Staff-typed action; the label is in CrisisNote.custom_action.
+    CUSTOM = "CUSTOM"
 
 
 class NoteRole(str, enum.Enum):
@@ -164,10 +166,11 @@ class CrisisNote(Base):
         nullable=False,
         server_default=NoteAction.NONE.value,
     )
+    custom_action: Mapped[str | None] = mapped_column(String(255), nullable=True)
     conflict_id: Mapped[int | None] = mapped_column(
         ForeignKey("conflicts.id", ondelete="SET NULL"), nullable=True
     )
-    # Timed crisis: staff are alerted if the note isn't resolved by then.
+    # Timed crisis: staff are alerted when it runs out.
     deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

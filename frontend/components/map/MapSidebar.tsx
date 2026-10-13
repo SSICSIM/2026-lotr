@@ -41,7 +41,7 @@ export function MapSidebar({ open, onOpenChange }: { open: boolean; onOpenChange
   }
 
   return (
-    <aside className="bg-background absolute inset-y-0 right-0 z-10 flex w-[381px] max-w-full flex-col border-l shadow-xl">
+    <aside className="bg-background absolute inset-y-0 right-0 z-10 flex w-[520px] max-w-full flex-col border-l shadow-xl">
       <div className="shrink-0 space-y-3 border-b px-5 pt-3 pb-4">
         <div className="flex h-8 items-center justify-between">
           <div className="flex items-center gap-1">
@@ -69,7 +69,7 @@ export function MapSidebar({ open, onOpenChange }: { open: boolean; onOpenChange
             </Button>
           </div>
         </div>
-        <nav role="tablist" aria-label="Map sidebar" className="bg-muted grid grid-cols-5 gap-0.5 rounded-lg p-1">
+        <nav role="tablist" aria-label="Map sidebar" className="bg-muted grid grid-cols-5 gap-1 rounded-lg p-1">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -78,7 +78,7 @@ export function MapSidebar({ open, onOpenChange }: { open: boolean; onOpenChange
               aria-selected={tab === t.id}
               onClick={() => navigate({ tab: t.id })}
               className={cn(
-                "rounded-md py-1.5 text-[13px] leading-5 font-medium transition-colors",
+                "rounded-md py-2 text-[13px] leading-5 font-medium transition-colors",
                 tab === t.id
                   ? "bg-accent text-accent-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"

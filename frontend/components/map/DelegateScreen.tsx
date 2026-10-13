@@ -10,7 +10,7 @@ import type { MapSource } from "./MapCanvas";
 
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
   ssr: false,
-  loading: () => <div className="absolute inset-0 bg-[#3a2e22]" />,
+  loading: () => <div className="absolute inset-0 bg-[#271613]" />,
 });
 
 async function fetchScreen(token: string): Promise<ScreenView> {
@@ -68,6 +68,7 @@ function toSource(screen: ScreenView, isGroup: boolean): MapSource {
       return c ? [{ id, name: c.name, avatar_url: c.avatar_url, created_at: "", race: "" }] : [];
     }),
     winner_id: null,
+    outcome_label: null,
     outcome_summary: null,
     created_at: "",
     resolved_at: null,
@@ -101,7 +102,7 @@ export function DelegateScreen({ token }: { token: string }) {
 
   if (error?.message === "invalid") {
     return (
-      <main className="flex h-dvh items-center justify-center bg-[#3a2e22] p-6 text-center text-[#f5e6c4]">
+      <main className="flex h-dvh items-center justify-center bg-[#271613] p-6 text-center text-[#f5e6c4]">
         <div>
           <p className="text-lg font-semibold">This map link isn&apos;t valid.</p>
           <p className="mt-1 text-sm opacity-80">Ask crisis staff for your group&apos;s current link.</p>
@@ -130,7 +131,7 @@ export function DelegateScreen({ token }: { token: string }) {
           }
         />
       ) : (
-        <div className="absolute inset-0 bg-[#3a2e22]" />
+        <div className="absolute inset-0 bg-[#271613]" />
       )}
     </main>
   );

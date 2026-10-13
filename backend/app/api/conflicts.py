@@ -100,13 +100,19 @@ def resolve_conflict(
     if body.winner_id is not None and body.winner_id not in party_ids:
         raise HTTPException(status_code=422, detail="The winner must be one of the parties.")
 
+    label = (body.outcome_label or "").strip() or None
     conflict.status = ConflictStatus.RESOLVED
-    conflict.winner_id = body.winner_id
+    # A custom outcome stands in for the winner.
+    conflict.winner_id = None if label else body.winner_id
+    conflict.outcome_label = label
     conflict.outcome_summary = body.outcome_summary
     conflict.resolved_at = corruption.now_utc()
 
-    winner = next((p for p in conflict.parties if p.id == body.winner_id), None)
-    verdict = f"{winner.name} prevailed." if winner else "No clear victor."
+    winner = next((p for p in conflict.parties if p.id == conflict.winner_id), None)
+    if label:
+        verdict = label if label.endswith((".", "!", "?")) else f"{label}."
+    else:
+        verdict = f"{winner.name} prevailed." if winner else "No clear victor."
     log_crisis_update(
         db,
         characters=list(conflict.parties),

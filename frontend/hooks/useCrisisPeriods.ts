@@ -27,6 +27,7 @@ export function useCreatePeriod() {
     mutationFn: (body: CrisisPeriodCreate) => crisisPeriodsService.create(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["periods"] });
+      qc.invalidateQueries({ queryKey: ["notes"] });
       toast.success("Period created.");
     },
     onError: (err: Error) => toast.error(err.message || "Failed to create period."),
@@ -39,6 +40,9 @@ export function useArchivePeriod() {
     mutationFn: (id: number) => crisisPeriodsService.archive(id),
     onSuccess: (newPeriod) => {
       qc.invalidateQueries({ queryKey: ["periods"] });
+      // The archived notes move lists, so refresh every notes view now.
+      qc.invalidateQueries({ queryKey: ["notes"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
       // Archiving publishes the update, which reveals newly discovered regions.
       qc.invalidateQueries({ queryKey: ["regions"] });
       qc.invalidateQueries({ queryKey: ["groups"] });

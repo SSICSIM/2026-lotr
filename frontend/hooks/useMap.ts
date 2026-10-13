@@ -219,6 +219,35 @@ export function useMoveToGroup() {
   });
 }
 
+export function useSyncGroups() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    // otherGroupId null syncs every group with every other.
+    mutationFn: ({ groupId, otherGroupId }: { groupId: number | null; otherGroupId: number | null }) =>
+      groupId == null || otherGroupId == null
+        ? groupsService.syncAll()
+        : groupsService.sync(groupId, otherGroupId),
+    onSuccess: () => {
+      invalidate("groups");
+      toast.success("Synced. Each group now sees where the others are right now.");
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to sync groups."),
+  });
+}
+
+export function useMergeGroups() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ groupId, otherGroupId }: { groupId: number; otherGroupId: number }) =>
+      groupsService.merge(groupId, otherGroupId),
+    onSuccess: (group) => {
+      invalidate("groups", "characters", "regions");
+      toast.success(`Groups merged into ${group.name}.`);
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to merge groups."),
+  });
+}
+
 export function useDeleteGroup() {
   const invalidate = useInvalidate();
   return useMutation({
