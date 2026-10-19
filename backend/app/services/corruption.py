@@ -23,14 +23,15 @@ from app.models.map import GameState
 
 MAX_CORRUPTION = 100.0
 
-# The four character classes and their default curve steepness (percentage
+# The five character classes and their default curve steepness (percentage
 # points per hour²). Placeholder values until the directors provide real
-# ones: wizards & hobbits take ~14 h of holding to be fully corrupted, men ~8 h.
+# ones: wizards and hobbits take ~14 h of holding to be fully corrupted, men ~8 h.
 RACE_CURVE_A: dict[str, float] = {
     "MAN": 1.5,
     "ELF": 1.0,
     "DWARF": 1.2,
-    "WIZARD_HOBBIT": 0.5,
+    "WIZARD": 0.5,
+    "HOBBIT": 0.5,
 }
 RACES = list(RACE_CURVE_A)
 DEFAULT_RACE = "MAN"
@@ -41,10 +42,8 @@ _CLASS_ALIASES = {
     "MAN": ["man", "men", "human", "humans"],
     "ELF": ["elf", "elves", "elven"],
     "DWARF": ["dwarf", "dwarfs", "dwarves"],
-    "WIZARD_HOBBIT": [
-        "wizard", "wizards", "hobbit", "hobbits", "wizardhobbit", "wizardshobbits",
-        "wizardsandhobbits", "wizardandhobbit", "hobbitswizards", "hobbitsandwizards",
-    ],
+    "WIZARD": ["wizard", "wizards", "istar", "istari"],
+    "HOBBIT": ["hobbit", "hobbits", "halfling", "halflings"],
 }
 _CLASS_LOOKUP = {alias: race for race, aliases in _CLASS_ALIASES.items() for alias in aliases}
 

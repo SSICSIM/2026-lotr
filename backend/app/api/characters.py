@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
-from app.models.crisis_note import Character, CrisisNote, NoteAction
+from app.models.crisis_note import Character, CrisisNote, NoteAction, Staff
 from app.models.map import ConflictStatus, GameState, Movement, Region
 from app.schemas import (
     BulkUploadResult,
@@ -45,6 +45,8 @@ def _to_map_character(
         created_at=c.created_at,
         race=c.race,
         avatar_url=c.avatar_url,
+        crisis_controlled=c.crisis_controlled,
+        assigned_staff_ids=c.assigned_staff_ids,
         x=c.x,
         y=c.y,
         region_id=region.id if region else None,
@@ -82,7 +84,7 @@ def list_characters(db: Session = Depends(get_db)) -> list[MapCharacterResponse]
     at = corruption.now_utc()
     characters = (
         db.query(Character)
-        .options(selectinload(Character.conflicts))
+        .options(selectinload(Character.conflicts), selectinload(Character.assigned_staff))
         .order_by(Character.name)
         .all()
     )
@@ -109,6 +111,12 @@ def update_character(
         updates["race"] = race
     if "avatar_url" in updates:
         updates["avatar_url"] = normalize_image_url(updates["avatar_url"])
+    staff_ids = updates.pop("assigned_staff_ids", None)
+    if staff_ids is not None:
+        staff = db.query(Staff).filter(Staff.id.in_(staff_ids)).all() if staff_ids else []
+        if len(staff) != len(set(staff_ids)):
+            raise HTTPException(status_code=404, detail="One or more staff members were not found.")
+        character.assigned_staff = staff
     game = load_game_state(db)
     race = updates.pop("race", None)
     if race is not None or "corruption_a" in updates:
@@ -233,15 +241,18 @@ def create_character(body: CharacterCreate, db: Session = Depends(get_db)) -> Ch
     existing = db.query(Character).filter(Character.name == body.name).first()
     if existing:
         raise HTTPException(status_code=409, detail="A character with that name already exists.")
-    character = Character(name=body.name)
+    character = Character(name=body.name, crisis_controlled=body.crisis_controlled)
     db.add(character)
     try:
         db.flush()
-        # Everyone starts in Rivendell, in the starting group.
-        place_character(db, character, *default_start())
-        group = default_group(db)
-        if group is not None:
-            assign(db, character, group.id)
+        # Delegates start in Rivendell, in the starting group. Crisis-controlled
+        # characters stay off the map (and out of delegate parties) until
+        # staff move them somewhere.
+        if not body.crisis_controlled:
+            place_character(db, character, *default_start())
+            group = default_group(db)
+            if group is not None:
+                assign(db, character, group.id)
         db.commit()
     except IntegrityError:
         # Another request created the same name between our check and commit.
@@ -252,14 +263,16 @@ def create_character(body: CharacterCreate, db: Session = Depends(get_db)) -> Ch
 
 
 # Character sheet columns, in the order used when the sheet has no header row.
-_SHEET_COLUMNS = ["name", "class", "a", "location", "image"]
+_SHEET_COLUMNS = ["name", "class", "a", "location", "image", "crisis"]
 _HEADER_ALIASES = {
     "name": ["name", "character", "charactername"],
     "class": ["class", "race", "type"],
     "a": ["a", "avalue", "curve", "corruptiona", "corruption"],
     "location": ["location", "startlocation", "start", "startinglocation", "place"],
     "image": ["image", "imagelink", "imageurl", "portrait", "avatar", "photo", "picture", "link"],
+    "crisis": ["crisis", "crisiscontrolled", "controlled", "npc"],
 }
+_TRUTHY = {"y", "yes", "true", "1", "x", "npc", "crisis"}
 
 
 @dataclass
@@ -336,7 +349,8 @@ async def bulk_upload_characters(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> BulkUploadResult:
-    """Import a character sheet: name, class, a, start location, image link."""
+    """Import a character sheet: name, class, a, start location, image link,
+    and optionally whether crisis staff control the character."""
     rows = _read_sheet((file.filename or "").lower(), await file.read())
 
     created = skipped = 0
@@ -370,16 +384,19 @@ async def bulk_upload_characters(
             if location and point is None:
                 errors.append(f"Row {row.line} ({name}): unknown location “{location}”, placed in Rivendell.")
 
+            npc = row.values.get("crisis", "").lower() in _TRUTHY
             character = Character(
                 name=name,
                 race=race,
                 corruption_a=a,
                 avatar_url=normalize_image_url(row.values.get("image")),
+                crisis_controlled=npc,
             )
             db.add(character)
             db.flush()
-            place_character(db, character, *(point or default_start()))
-            if group is not None:
+            if point or not npc:
+                place_character(db, character, *(point or default_start()))
+            if group is not None and not npc:
                 assign(db, character, group.id)
             existing_names.add(name)
             created += 1

@@ -4,10 +4,12 @@ import { useState } from "react";
 
 import { ArchivePeriodDialog } from "@/components/crisis/ArchivePeriodDialog";
 import { CreatePeriodDialog } from "@/components/crisis/CreatePeriodDialog";
+import { PreviousUpdate } from "@/components/crisis/PreviousUpdate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNotes } from "@/hooks/useCrisisNotes";
 import { useActivePeriod } from "@/hooks/useCrisisPeriods";
+import { useViewingAs } from "@/hooks/useViewingAs";
 import { cn } from "@/lib/utils";
 import { useMapActions } from "./MapActions";
 import { NoteFilterButton, NoteList, useNoteFilter } from "./NoteList";
@@ -17,8 +19,10 @@ import { SectionHeading, SidebarSearch, dangerButton, solidButton } from "./part
 export function DirectivesTab() {
   const { data: period } = useActivePeriod();
   const { openAddNote } = useMapActions();
-  const { data: current = [], isLoading } = useNotes({ period_id: period?.id }, !!period);
-  const { data: archived = [], isLoading: archivedLoading } = useNotes({ archived_only: true });
+  const [viewingAs] = useViewingAs();
+  const staffId = viewingAs ?? undefined;
+  const { data: current = [], isLoading } = useNotes({ period_id: period?.id, staff_id: staffId }, !!period);
+  const { data: archived = [], isLoading: archivedLoading } = useNotes({ archived_only: true, staff_id: staffId });
   const [query, setQuery] = useState("");
   const [archivedQuery, setArchivedQuery] = useState("");
   const { filter, setFilter, filtered } = useNoteFilter(current, query);
@@ -28,6 +32,7 @@ export function DirectivesTab() {
 
   return (
     <div className="space-y-6">
+      <PreviousUpdate className="px-3 [&_p]:text-xs" />
       <section>
         <SectionHeading title="Current Crisis Update" />
         {period ? (

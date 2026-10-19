@@ -31,6 +31,8 @@ function toCharacter(c: ScreenView["characters"][number] | ScreenView["last_seen
     army_mobilized: "army_mobilized" in c ? c.army_mobilized : false,
     created_at: "",
     race: "",
+    crisis_controlled: false,
+    assigned_staff_ids: [],
     region_id: null,
     group_id: null,
     corruption: 0,
@@ -65,7 +67,7 @@ function toSource(screen: ScreenView, isGroup: boolean): MapSource {
     status: "ONGOING",
     parties: k.party_ids.flatMap((id) => {
       const c = byId.get(id);
-      return c ? [{ id, name: c.name, avatar_url: c.avatar_url, created_at: "", race: "" }] : [];
+      return c ? [{ ...c, id }] : [];
     }),
     winner_id: null,
     outcome_label: null,

@@ -7,11 +7,13 @@ import {
   FootprintsIcon,
   LockIcon,
   MegaphoneIcon,
+  NotebookPenIcon,
   ScrollTextIcon,
   SearchIcon,
   ShieldIcon,
   SwordsIcon,
   TimerIcon,
+  UserCogIcon,
   WandSparklesIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -38,12 +40,13 @@ import type {
   Priority,
 } from "@/types/api";
 
-// The four character classes.
+// The five character classes.
 export const RACE_LABELS: Record<string, string> = {
   MAN: "Men",
   ELF: "Elves",
   DWARF: "Dwarves",
-  WIZARD_HOBBIT: "Wizards & Hobbits",
+  WIZARD: "Wizards",
+  HOBBIT: "Hobbits",
 };
 
 export function raceLabel(race: string) {
@@ -311,6 +314,7 @@ export const outlineButton = "h-[25px] rounded-lg px-4 text-sm shadow-xs";
 const TYPE_TAG: Record<NoteType, { label: string; icon: LucideIcon }> = {
   PRIVATE_DIRECTIVE: { label: "Private", icon: LockIcon },
   PUBLIC_DIRECTIVE: { label: "Public", icon: MegaphoneIcon },
+  CRISIS_NOTE: { label: "Crisis note", icon: NotebookPenIcon },
   CRISIS_UPDATE: { label: "Update", icon: ScrollTextIcon },
 };
 
@@ -355,11 +359,16 @@ export function NoteTags({ note }: { note: CrisisNoteResponse }) {
   );
 }
 
-/** Status pills for a character: Ring, Army, In conflict, group. */
+/** Status pills for a character: crisis-controlled, Ring, Army, In conflict, group. */
 export function CharacterTags({ character, group }: { character: MapCharacter; group?: GroupResponse }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       <RaceBadge race={character.race} className="h-[18px] rounded-md px-1.5 py-0 text-[10px]" />
+      {character.crisis_controlled ? (
+        <Tag tone="slate" icon={UserCogIcon}>
+          Crisis
+        </Tag>
+      ) : null}
       {character.has_ring ? (
         <Tag tone="orange" icon={CircleDotIcon}>
           Ring

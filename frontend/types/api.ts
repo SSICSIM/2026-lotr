@@ -3,7 +3,7 @@ export interface HealthResponse {
 }
 
 export type Priority = "HIGH" | "MEDIUM" | "LOW";
-export type NoteType = "PRIVATE_DIRECTIVE" | "PUBLIC_DIRECTIVE" | "CRISIS_UPDATE";
+export type NoteType = "PRIVATE_DIRECTIVE" | "PUBLIC_DIRECTIVE" | "CRISIS_NOTE" | "CRISIS_UPDATE";
 export type NoteAction = "NONE" | "MOVE" | "MOBILIZE" | "CONFLICT" | "RING" | "CUSTOM";
 
 // ── Characters ───────────────────────────────────────────────────────────────
@@ -14,6 +14,10 @@ export interface CharacterResponse {
   created_at: string;
   race: string;
   avatar_url: string | null;
+  /** Played by crisis staff (NPC / enemy force) rather than a delegate. */
+  crisis_controlled: boolean;
+  /** CAs looking after this character. */
+  assigned_staff_ids: number[];
 }
 
 export interface MapCharacter extends CharacterResponse {
@@ -45,6 +49,9 @@ export interface CharacterUpdate {
   corruption?: number;
   /** null resets to the race default. */
   corruption_a?: number | null;
+  crisis_controlled?: boolean;
+  /** Replaces the character's CAs. */
+  assigned_staff_ids?: number[];
 }
 
 export interface InlineNote {
@@ -196,6 +203,7 @@ export interface ConflictResolve {
 
 export interface CharacterCreate {
   name: string;
+  crisis_controlled?: boolean;
 }
 
 export interface BulkUploadResult {
@@ -209,6 +217,8 @@ export interface BulkUploadResult {
 export interface CrisisPeriodResponse {
   id: number;
   name: string;
+  /** The crisis update published at the end of this period. */
+  description: string | null;
   is_active: boolean;
   created_at: string;
   archived_at: string | null;
@@ -216,6 +226,17 @@ export interface CrisisPeriodResponse {
 
 export interface CrisisPeriodCreate {
   name: string;
+  description?: string;
+}
+
+export interface CrisisPeriodUpdate {
+  name?: string;
+  description?: string | null;
+}
+
+export interface CrisisPeriodArchive {
+  description?: string;
+  next_name?: string;
 }
 
 // ── Crisis Notes ──────────────────────────────────────────────────────────────
@@ -282,6 +303,8 @@ export interface NoteFilters {
   priority?: Priority;
   note_type?: NoteType;
   conflict_id?: number;
+  /** Only notes touching this CA's characters. */
+  staff_id?: number;
   q?: string;
 }
 
@@ -303,6 +326,18 @@ export interface StaffNoteCreate {
 export interface StaffNoteUpdate {
   title?: string;
   content?: string;
+}
+
+// ── Staff (CAs) ───────────────────────────────────────────────────────────────
+
+export interface StaffResponse {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+export interface StaffCreate {
+  name: string;
 }
 
 // ── Analytics ─────────────────────────────────────────────────────────────────

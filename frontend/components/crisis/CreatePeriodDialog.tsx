@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useCreatePeriod } from "@/hooks/useCrisisPeriods";
 
 interface Props {
@@ -20,12 +21,22 @@ interface Props {
 
 export function CreatePeriodDialog({ open, onOpenChange }: Props) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const { mutate, isPending } = useCreatePeriod();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    mutate({ name: name.trim() }, { onSuccess: () => { setName(""); onOpenChange(false); } });
+    mutate(
+      { name: name.trim(), description: description.trim() || undefined },
+      {
+        onSuccess: () => {
+          setName("");
+          setDescription("");
+          onOpenChange(false);
+        },
+      }
+    );
   }
 
   return (
@@ -43,6 +54,15 @@ export function CreatePeriodDialog({ open, onOpenChange }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="period-description">Description (optional)</Label>
+            <Textarea
+              id="period-description"
+              placeholder="Where the story stands as this round opens…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
           <DialogFooter>

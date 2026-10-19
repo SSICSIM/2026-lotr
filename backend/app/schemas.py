@@ -16,6 +16,7 @@ class HealthResponse(BaseModel):
 
 class CharacterCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
+    crisis_controlled: bool = False
 
 
 class CharacterResponse(BaseModel):
@@ -26,6 +27,8 @@ class CharacterResponse(BaseModel):
     created_at: datetime
     race: str = "MAN"
     avatar_url: str | None = None
+    crisis_controlled: bool = False
+    assigned_staff_ids: list[int] = []
 
 
 class MapCharacterResponse(CharacterResponse):
@@ -55,6 +58,9 @@ class CharacterUpdate(BaseModel):
     corruption: float | None = Field(default=None, ge=0, le=100)
     # Curve steepness; send null to go back to the race default.
     corruption_a: float | None = Field(default=None, gt=0, le=100)
+    crisis_controlled: bool | None = None
+    # Replaces the character's CAs.
+    assigned_staff_ids: list[int] | None = None
 
 
 class InlineNote(BaseModel):
@@ -291,6 +297,19 @@ class ConflictResponse(BaseModel):
 
 class CrisisPeriodCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+
+
+class CrisisPeriodUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+
+
+class CrisisPeriodArchive(BaseModel):
+    # The crisis update being published; kept on the archived period.
+    description: str | None = None
+    # Name for the next period; defaults to bumping the trailing number.
+    next_name: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 class CrisisPeriodResponse(BaseModel):
@@ -298,6 +317,7 @@ class CrisisPeriodResponse(BaseModel):
 
     id: int
     name: str
+    description: str | None
     is_active: bool
     created_at: datetime
     archived_at: datetime | None
@@ -382,6 +402,20 @@ class StaffNoteResponse(BaseModel):
     period_id: int
     title: str
     content: str
+    created_at: datetime
+
+
+# ── Staff (CAs) ──────────────────────────────────────────────────────────────
+
+class StaffCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
+class StaffResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
     created_at: datetime
 
 

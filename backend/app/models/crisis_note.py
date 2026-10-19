@@ -39,6 +39,8 @@ class NoteType(str, enum.Enum):
     # Logged by the system or crisis staff rather than written by a delegate,
     # e.g. "conflict started" / "conflict resolved" entries.
     CRISIS_UPDATE = "CRISIS_UPDATE"
+    # Written by crisis staff for the record; never shown to delegates.
+    CRISIS_NOTE = "CRISIS_NOTE"
 
 
 class NoteAction(str, enum.Enum):
@@ -70,6 +72,28 @@ note_characters = Table(
 )
 
 
+# Crisis assistants (CAs) responsible for a character. A character can have a
+# couple; staff filter the site to the characters they look after.
+character_staff = Table(
+    "character_staff",
+    Base.metadata,
+    Column("character_id", ForeignKey("characters.id", ondelete="CASCADE"), primary_key=True),
+    Column("staff_id", ForeignKey("staff.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Staff(Base):
+    """A crisis staff member (CA). Just a name: login is one shared password."""
+
+    __tablename__ = "staff"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class Character(Base):
     __tablename__ = "characters"
 
@@ -77,6 +101,12 @@ class Character(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     race: Mapped[str] = mapped_column(String(32), nullable=False, server_default="MAN")
     avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    # Played by crisis staff (an NPC or enemy force) rather than a delegate.
+    # Starts off the map and outside any delegate group, but can be a
+    # conflict party like anyone.
+    crisis_controlled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     # Map position as fractions (0–1) of the map image's width/height, measured
     # from the top-left corner. Null until the character is first placed.
     x: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -108,6 +138,13 @@ class Character(Base):
     conflicts: Mapped[list[Conflict]] = relationship(
         "Conflict", secondary="conflict_parties", back_populates="parties"
     )
+    assigned_staff: Mapped[list[Staff]] = relationship(
+        "Staff", secondary=character_staff, order_by="Staff.name"
+    )
+
+    @property
+    def assigned_staff_ids(self) -> list[int]:
+        return [s.id for s in self.assigned_staff]
 
 
 class CrisisPeriod(Base):
@@ -126,6 +163,9 @@ class CrisisPeriod(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # The crisis update published at the end of this period: what happened,
+    # as read out to the committee. Together they make the running plot.
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
