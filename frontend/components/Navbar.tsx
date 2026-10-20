@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CharacterManagerDialog } from "@/components/crisis/CharacterManagerDialog";
-import { ViewingAsSelect } from "@/components/ViewingAs";
+import { ViewingAsFilter } from "@/components/ViewingAs";
 
 export function Navbar() {
   const [charOpen, setCharOpen] = useState(false);
@@ -28,7 +28,7 @@ export function Navbar() {
             </Link>
           </nav>
           <div className="flex items-center gap-2">
-            <ViewingAsSelect />
+            <ViewingAsFilter />
             <Button variant="outline" size="sm" onClick={() => setCharOpen(true)}>
               <Users className="mr-2 h-4 w-4" />
               Characters

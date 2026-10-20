@@ -192,7 +192,7 @@ export function EditCharacterDialog({
                 characters={staff}
                 value={staffIds}
                 onChange={setStaffIds}
-                placeholder={staff.length ? "Add a CA" : "No CAs yet — add them from “Viewing as”"}
+                placeholder={staff.length ? "Add a CA" : "No CAs yet — add them from the Filter menu"}
               />
             </div>
             <div className="flex items-center justify-between gap-3">

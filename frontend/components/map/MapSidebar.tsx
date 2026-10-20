@@ -6,7 +6,7 @@ import { ListIcon, PanelRightCloseIcon, PanelRightOpenIcon, UsersIcon } from "lu
 
 import { CharacterManagerDialog } from "@/components/crisis/CharacterManagerDialog";
 import { Button } from "@/components/ui/button";
-import { ViewingAsSelect } from "@/components/ViewingAs";
+import { ViewingAsFilter } from "@/components/ViewingAs";
 import { cn } from "@/lib/utils";
 import { CharacterTab } from "./CharacterTab";
 import { ConflictTab } from "./ConflictTab";
@@ -58,7 +58,7 @@ export function MapSidebar({ open, onOpenChange }: { open: boolean; onOpenChange
             <span className="text-sm font-semibold tracking-tight">Middle-earth</span>
           </div>
           <div className="flex items-center gap-1">
-            <ViewingAsSelect className="w-40" />
+            <ViewingAsFilter variant="ghost" />
             <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
               <Link href="/">
                 <ListIcon />

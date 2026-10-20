@@ -1,59 +1,82 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { FilterIcon, Trash2, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useCreateStaff, useDeleteStaff, useStaff } from "@/hooks/useStaff";
 import { useViewingAs } from "@/hooks/useViewingAs";
 import { cn } from "@/lib/utils";
 
 const ALL = "__all__";
-const MANAGE = "__manage__";
 
-/** "Viewing as: All / <CA>" — narrows notes and character lists to one CA's characters. */
-export function ViewingAsSelect({ className }: { className?: string }) {
+/** Filter button that narrows notes and character lists to one CA's characters. */
+export function ViewingAsFilter({ variant = "outline", className }: { variant?: "outline" | "ghost"; className?: string }) {
   const { data: staff = [] } = useStaff();
   const [staffId, setStaffId] = useViewingAs();
   const [manageOpen, setManageOpen] = useState(false);
   // A CA deleted elsewhere falls back to everyone.
-  const current = staff.some((s) => s.id === staffId) ? String(staffId) : ALL;
+  const active = staff.find((s) => s.id === staffId);
 
   return (
     <>
-      <Select
-        value={current}
-        onValueChange={(v) => {
-          if (v === MANAGE) setManageOpen(true);
-          else setStaffId(v === ALL ? null : Number(v));
-        }}
-      >
-        <SelectTrigger size="sm" className={cn("w-44 text-xs", className)} aria-label="Viewing as">
-          <span className="text-muted-foreground">Viewing as</span>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>All characters</SelectItem>
-          {staff.map((s) => (
-            <SelectItem key={s.id} value={String(s.id)}>
-              {s.name}
-            </SelectItem>
-          ))}
-          <SelectSeparator />
-          <SelectItem value={MANAGE}>Manage CAs…</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className={cn("flex items-center", className)}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant={active ? "secondary" : variant}
+              size="sm"
+              className={cn(active ? "max-w-44 rounded-r-none" : "text-muted-foreground")}
+              aria-label={active ? `Filtered to ${active.name}'s characters` : "Filter by CA"}
+            >
+              <FilterIcon className={cn("h-4 w-4", active && "fill-current")} />
+              <span className="truncate">{active ? active.name : "Filter"}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+              Show characters assigned to
+            </DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={active ? String(active.id) : ALL}
+              onValueChange={(v) => setStaffId(v === ALL ? null : Number(v))}
+            >
+              <DropdownMenuRadioItem value={ALL}>All CAs</DropdownMenuRadioItem>
+              {staff.map((s) => (
+                <DropdownMenuRadioItem key={s.id} value={String(s.id)}>
+                  {s.name}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setManageOpen(true)}>Manage CAs…</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {active && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="rounded-l-none border-l border-background/60 px-2"
+            onClick={() => setStaffId(null)}
+            aria-label="Clear filter"
+          >
+            <XIcon className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
       <ManageStaffDialog open={manageOpen} onOpenChange={setManageOpen} />
     </>
   );

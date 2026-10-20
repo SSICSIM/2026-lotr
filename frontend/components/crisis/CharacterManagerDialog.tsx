@@ -215,7 +215,7 @@ function StaffPicker({ character, staff }: { character: CharacterResponse; staff
       </PopoverTrigger>
       <PopoverContent align="end" className="w-52 space-y-1.5">
         {!staff.length && (
-          <p className="text-muted-foreground text-xs">Add CAs from &ldquo;Viewing as&rdquo; first.</p>
+          <p className="text-muted-foreground text-xs">Add CAs from the Filter menu first.</p>
         )}
         {staff.map((s) => (
           <label key={s.id} className="flex items-center gap-2 text-sm">
