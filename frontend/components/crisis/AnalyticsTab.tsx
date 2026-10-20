@@ -11,6 +11,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAnalytics } from "@/hooks/useCrisisNotes";
 import { usePeriods } from "@/hooks/useCrisisPeriods";
+import { useViewingAs } from "@/hooks/useViewingAs";
 import { NotesByCharacterChart } from "./NotesByCharacterChart";
 import { PriorityDistributionChart } from "./PriorityDistributionChart";
 import { StatCards } from "./StatCards";
@@ -44,7 +45,8 @@ export function AnalyticsTab({ defaultPeriodId }: Props) {
   // null = all periods, number = specific period, undefined = nothing selected yet
   const periodId: number | null = selected === ALL_PERIODS ? null : Number(selected);
 
-  const { data: analytics, isLoading: loadingAnalytics } = useAnalytics(periodId);
+  const [staffId] = useViewingAs();
+  const { data: analytics, isLoading: loadingAnalytics } = useAnalytics(periodId, staffId);
 
   return (
     <div className="space-y-6">

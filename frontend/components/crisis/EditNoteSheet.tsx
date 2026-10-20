@@ -116,7 +116,7 @@ export function EditNoteSheet({ note, onOpenChange }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Type</Label>
+            <Label>Visibility</Label>
             <Select value={form.note_type} onValueChange={(v) => set("note_type", v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Directive type…" />
@@ -124,6 +124,7 @@ export function EditNoteSheet({ note, onOpenChange }: Props) {
               <SelectContent>
                 <SelectItem value="PRIVATE_DIRECTIVE">Private Directive</SelectItem>
                 <SelectItem value="PUBLIC_DIRECTIVE">Public Directive</SelectItem>
+                <SelectItem value="CRISIS_NOTE">Crisis Note</SelectItem>
                 <SelectItem value="CRISIS_UPDATE">Crisis Update</SelectItem>
               </SelectContent>
             </Select>

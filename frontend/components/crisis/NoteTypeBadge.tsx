@@ -4,6 +4,7 @@ import type { NoteType } from "@/types/api";
 const config: Record<NoteType, { label: string; variant: "default" | "secondary" | "outline" }> = {
   PRIVATE_DIRECTIVE: { label: "Private Directive", variant: "default" },
   PUBLIC_DIRECTIVE: { label: "Public Directive", variant: "outline" },
+  CRISIS_NOTE: { label: "Crisis Note", variant: "secondary" },
   CRISIS_UPDATE: { label: "Crisis Update", variant: "secondary" },
 };
 

@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeleteNote, useNotes } from "@/hooks/useCrisisNotes";
+import { useViewingAs } from "@/hooks/useViewingAs";
 import type { CrisisNoteResponse, NoteFilters, NoteType, Priority } from "@/types/api";
 import { AddNoteDialog } from "./AddNoteDialog";
 import { EditNoteSheet } from "./EditNoteSheet";
@@ -19,6 +20,7 @@ interface Props {
 export function ActiveNotesTab({ activePeriodId }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [editNote, setEditNote] = useState<CrisisNoteResponse | null>(null);
+  const [staffId] = useViewingAs();
   const [rawFilters, setRawFilters] = useState<FilterState>({
     q: "",
     character_id: "",
@@ -33,6 +35,7 @@ export function ActiveNotesTab({ activePeriodId }: Props) {
         character_id: rawFilters.character_id ? Number(rawFilters.character_id) : undefined,
         priority: (rawFilters.priority as Priority) || undefined,
         note_type: (rawFilters.note_type as NoteType) || undefined,
+        staff_id: staffId ?? undefined,
       }
     : null;
 

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { crisisPeriodsService } from "@/services/crisisPeriods";
-import type { CrisisPeriodCreate } from "@/types/api";
+import type { CrisisPeriodArchive, CrisisPeriodCreate, CrisisPeriodUpdate } from "@/types/api";
 
 export function usePeriods() {
   return useQuery({
@@ -34,10 +34,24 @@ export function useCreatePeriod() {
   });
 }
 
+export function useUpdatePeriod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: CrisisPeriodUpdate }) =>
+      crisisPeriodsService.update(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["periods"] });
+      toast.success("Crisis update saved.");
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to save crisis update."),
+  });
+}
+
 export function useArchivePeriod() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => crisisPeriodsService.archive(id),
+    mutationFn: ({ id, body }: { id: number; body?: CrisisPeriodArchive }) =>
+      crisisPeriodsService.archive(id, body),
     onSuccess: (newPeriod) => {
       qc.invalidateQueries({ queryKey: ["periods"] });
       // The archived notes move lists, so refresh every notes view now.

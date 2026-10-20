@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useCreateCharacter } from "@/hooks/useCharacters";
 import { useActivePeriod } from "@/hooks/useCrisisPeriods";
 import { useCreateConflict, useGroups, useMapCharacters, useResolveConflict } from "@/hooks/useMap";
 import type { ConflictResponse } from "@/types/api";
@@ -47,13 +48,31 @@ export function CreateConflictDialog({
   const { data: groups = [] } = useGroups();
   const { data: period } = useActivePeriod();
   const { mutate, isPending } = useCreateConflict();
+  const { mutate: createCharacter, isPending: creatingParty } = useCreateCharacter();
   const [name, setName] = useState("");
   const [partyIds, setPartyIds] = useState<number[]>([]);
   const [timer, setTimer] = useState(NO_TIMER);
+  // Inline "new crisis-controlled party", so staff needn't leave the dialog.
+  const [newParty, setNewParty] = useState("");
+
+  function addCrisisParty() {
+    const partyName = newParty.trim();
+    if (!partyName) return;
+    createCharacter(
+      { name: partyName, crisis_controlled: true },
+      {
+        onSuccess: (c) => {
+          setPartyIds((ids) => [...ids, c.id]);
+          setNewParty("");
+        },
+      }
+    );
+  }
 
   useEffect(() => {
     if (open) {
       setName("");
+      setNewParty("");
       setTimer(NO_TIMER);
       setPartyIds(prefill?.partyIds ?? []);
     }
@@ -112,6 +131,32 @@ export function CreateConflictDialog({
               value={partyIds}
               onChange={setPartyIds}
             />
+            <div className="flex gap-1.5">
+              <Input
+                aria-label="New crisis-controlled party"
+                placeholder="Or add a crisis-controlled party, e.g. Uruk-hai of Isengard"
+                value={newParty}
+                onChange={(e) => setNewParty(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCrisisParty();
+                  }
+                }}
+                maxLength={255}
+                className="h-8 flex-1 text-xs md:text-xs"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={!newParty.trim() || creatingParty}
+                onClick={addCrisisParty}
+              >
+                Add
+              </Button>
+            </div>
           </div>
           <div className="space-y-1">
             <Label htmlFor="conflict-timer" className="text-xs">

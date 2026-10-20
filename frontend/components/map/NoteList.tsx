@@ -96,6 +96,7 @@ export function NoteFilterButton({
               <SelectItem value="ALL">All types</SelectItem>
               <SelectItem value="PRIVATE_DIRECTIVE">Private directive</SelectItem>
               <SelectItem value="PUBLIC_DIRECTIVE">Public directive</SelectItem>
+              <SelectItem value="CRISIS_NOTE">Crisis note</SelectItem>
               <SelectItem value="CRISIS_UPDATE">Crisis update</SelectItem>
             </SelectContent>
           </Select>

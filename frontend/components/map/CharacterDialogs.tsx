@@ -30,8 +30,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useGameState, useMapCharacters, useSetRingHolder, useUpdateCharacter } from "@/hooks/useMap";
+import { useStaff } from "@/hooks/useStaff";
 import type { MapCharacter } from "@/types/api";
+import { CharacterMultiSelect } from "./CharacterMultiSelect";
 import { RACE_LABELS, raceLabel } from "./parts";
 
 /**
@@ -103,12 +106,17 @@ export function EditCharacterDialog({
   const [name, setName] = useState("");
   const [race, setRace] = useState("MAN");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [crisisControlled, setCrisisControlled] = useState(false);
+  const [staffIds, setStaffIds] = useState<number[]>([]);
+  const { data: staff = [] } = useStaff();
 
   useEffect(() => {
     if (character) {
       setName(character.name);
       setRace(character.race);
       setAvatarUrl(character.avatar_url ?? "");
+      setCrisisControlled(character.crisis_controlled);
+      setStaffIds(character.assigned_staff_ids);
     }
   }, [character]);
 
@@ -127,7 +135,13 @@ export function EditCharacterDialog({
               mutate(
                 {
                   id: character.id,
-                  body: { name: name.trim(), race, avatar_url: avatarUrl.trim() || null },
+                  body: {
+                    name: name.trim(),
+                    race,
+                    avatar_url: avatarUrl.trim() || null,
+                    crisis_controlled: crisisControlled,
+                    assigned_staff_ids: staffIds,
+                  },
                 },
                 { onSuccess: () => onOpenChange(false) }
               );
@@ -168,6 +182,24 @@ export function EditCharacterDialog({
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 className="h-10"
               />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="char-staff" className="text-xs">
+                Assigned CAs
+              </Label>
+              <CharacterMultiSelect
+                id="char-staff"
+                characters={staff}
+                value={staffIds}
+                onChange={setStaffIds}
+                placeholder={staff.length ? "Add a CA" : "No CAs yet — add them from the Filter menu"}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="char-crisis" className="text-xs">
+                Crisis-controlled (NPC, not a delegate)
+              </Label>
+              <Switch id="char-crisis" checked={crisisControlled} onCheckedChange={setCrisisControlled} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

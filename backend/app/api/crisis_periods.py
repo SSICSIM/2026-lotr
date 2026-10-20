@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.crisis_note import CrisisPeriod
-from app.schemas import CrisisPeriodCreate, CrisisPeriodResponse
+from app.schemas import (
+    CrisisPeriodArchive,
+    CrisisPeriodCreate,
+    CrisisPeriodResponse,
+    CrisisPeriodUpdate,
+)
 from app.services.discovery import reveal_pending
 
 
@@ -42,7 +47,7 @@ def create_period(body: CrisisPeriodCreate, db: Session = Depends(get_db)) -> Cr
             status_code=409,
             detail="An active period already exists. Archive it before creating a new one.",
         )
-    period = CrisisPeriod(name=body.name, is_active=True)
+    period = CrisisPeriod(name=body.name, description=body.description, is_active=True)
     db.add(period)
     try:
         db.commit()
@@ -58,18 +63,42 @@ def create_period(body: CrisisPeriodCreate, db: Session = Depends(get_db)) -> Cr
     return period
 
 
+@router.patch("/{period_id}", response_model=CrisisPeriodResponse)
+def update_period(
+    period_id: int, body: CrisisPeriodUpdate, db: Session = Depends(get_db)
+) -> CrisisPeriod:
+    period = db.get(CrisisPeriod, period_id)
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found.")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        if value is not None or field == "description":
+            setattr(period, field, value)
+    db.commit()
+    db.refresh(period)
+    return period
+
+
 @router.post("/{period_id}/archive", response_model=CrisisPeriodResponse)
-def archive_period(period_id: int, db: Session = Depends(get_db)) -> CrisisPeriod:
+def archive_period(
+    period_id: int,
+    body: CrisisPeriodArchive | None = None,
+    db: Session = Depends(get_db),
+) -> CrisisPeriod:
     period = db.get(CrisisPeriod, period_id)
     if not period:
         raise HTTPException(status_code=404, detail="Period not found.")
     if not period.is_active:
         raise HTTPException(status_code=409, detail="Period is already archived.")
+    body = body or CrisisPeriodArchive()
+    if body.description is not None:
+        period.description = body.description.strip() or None
     period.is_active = False
     period.archived_at = datetime.now(timezone.utc)
     # Publishing a crisis update is when delegates learn of newly found lands.
     reveal_pending(db)
-    next_period = CrisisPeriod(name=_next_period_name(period.name), is_active=True)
+    next_period = CrisisPeriod(
+        name=body.next_name or _next_period_name(period.name), is_active=True
+    )
     db.add(next_period)
     db.commit()
     db.refresh(next_period)

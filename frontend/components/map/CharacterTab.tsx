@@ -28,6 +28,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useNotes } from "@/hooks/useCrisisNotes";
+import { isAssigned, useViewingAs } from "@/hooks/useViewingAs";
 import {
   useConflicts,
   useDeleteConflict,
@@ -79,17 +80,19 @@ function CharacterList() {
   const { data: groups = [] } = useGroups();
   const { navigate } = useMapParams();
   const [query, setQuery] = useState("");
+  const [staffId] = useViewingAs();
 
   const regionName = useMemo(() => new Map(regions.map((r) => [r.id, r.name])), [regions]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return characters;
     return characters.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.region_id != null && regionName.get(c.region_id)?.toLowerCase().includes(q))
+        isAssigned(c, staffId) &&
+        (!q ||
+          c.name.toLowerCase().includes(q) ||
+          (c.region_id != null && regionName.get(c.region_id)?.toLowerCase().includes(q)))
     );
-  }, [characters, query, regionName]);
+  }, [characters, query, regionName, staffId]);
   const { page, pageCount, setPage, pageItems } = usePaged(filtered, 8);
 
   return (
@@ -116,7 +119,11 @@ function CharacterList() {
       </ul>
       {!isLoading && !filtered.length ? (
         <p className="text-muted-foreground py-6 text-center text-xs">
-          {characters.length ? "No characters match." : "No characters yet."}
+          {characters.length
+            ? staffId != null && !query.trim()
+              ? "No characters assigned to this CA."
+              : "No characters match."
+            : "No characters yet."}
         </p>
       ) : null}
       <SidebarPagination page={page} pageCount={pageCount} onPage={setPage} />

@@ -12,14 +12,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CharacterResponse, GroupResponse } from "@/types/api";
+import type { GroupResponse } from "@/types/api";
 
 const GROUP_PREFIX = "group:";
+
+/** Anything pickable: characters, or other named things such as CAs. */
+interface Option {
+  id: number;
+  name: string;
+  crisis_controlled?: boolean;
+}
 
 /**
  * The design's multi-pick: a plain select that adds to a list of removable
  * chips shown underneath it ("x Nuth  x Buth"). With `groups`, picking a
- * group adds all of its members at once.
+ * group adds all of its members at once. Crisis-controlled characters are
+ * listed apart from delegates.
  */
 export function CharacterMultiSelect({
   characters,
@@ -29,7 +37,7 @@ export function CharacterMultiSelect({
   placeholder = "Select option",
   id,
 }: {
-  characters: CharacterResponse[];
+  characters: Option[];
   value: number[];
   onChange: (ids: number[]) => void;
   groups?: GroupResponse[];
@@ -37,6 +45,8 @@ export function CharacterMultiSelect({
   id?: string;
 }) {
   const remaining = characters.filter((c) => !value.includes(c.id));
+  const delegates = remaining.filter((c) => !c.crisis_controlled);
+  const crisis = remaining.filter((c) => c.crisis_controlled);
   const byId = new Map(characters.map((c) => [c.id, c]));
   // Groups with someone not already picked.
   const pickableGroups = (groups ?? []).filter((g) => g.member_ids.some((m) => byId.has(m) && !value.includes(m)));
@@ -58,26 +68,45 @@ export function CharacterMultiSelect({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {pickableGroups.length ? (
+          {pickableGroups.length || crisis.length ? (
             <>
-              <SelectGroup>
-                <SelectLabel>Groups</SelectLabel>
-                {pickableGroups.map((g) => (
-                  <SelectItem key={`g${g.id}`} value={`${GROUP_PREFIX}${g.id}`}>
-                    <span className="size-2 rounded-full" style={{ backgroundColor: g.color }} />
-                    {g.name} (everyone)
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-              <SelectSeparator />
-              <SelectGroup>
-                <SelectLabel>Characters</SelectLabel>
-                {remaining.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
+              {pickableGroups.length ? (
+                <>
+                  <SelectGroup>
+                    <SelectLabel>Groups</SelectLabel>
+                    {pickableGroups.map((g) => (
+                      <SelectItem key={`g${g.id}`} value={`${GROUP_PREFIX}${g.id}`}>
+                        <span className="size-2 rounded-full" style={{ backgroundColor: g.color }} />
+                        {g.name} (everyone)
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectSeparator />
+                </>
+              ) : null}
+              {delegates.length ? (
+                <SelectGroup>
+                  <SelectLabel>{crisis.length ? "Delegates" : "Characters"}</SelectLabel>
+                  {delegates.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ) : null}
+              {crisis.length ? (
+                <>
+                  {delegates.length ? <SelectSeparator /> : null}
+                  <SelectGroup>
+                    <SelectLabel>Crisis-controlled</SelectLabel>
+                    {crisis.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </>
+              ) : null}
             </>
           ) : (
             remaining.map((c) => (

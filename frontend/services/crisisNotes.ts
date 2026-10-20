@@ -16,6 +16,7 @@ export const crisisNotesService = {
     if (filters.priority) params.set("priority", filters.priority);
     if (filters.note_type) params.set("note_type", filters.note_type);
     if (filters.conflict_id != null) params.set("conflict_id", String(filters.conflict_id));
+    if (filters.staff_id != null) params.set("staff_id", String(filters.staff_id));
     if (filters.q) params.set("q", filters.q);
     return apiClient.get<CrisisNoteResponse[]>(`/api/notes?${params}`);
   },
@@ -27,8 +28,10 @@ export const crisisNotesService = {
 
   delete: (id: number) => apiClient.delete<void>(`/api/notes/${id}`),
 
-  getAnalytics: (periodId: number | null) => {
-    const params = periodId != null ? `?period_id=${periodId}` : "";
-    return apiClient.get<AnalyticsSummary>(`/api/notes/analytics${params}`);
+  getAnalytics: (periodId: number | null, staffId: number | null = null) => {
+    const params = new URLSearchParams();
+    if (periodId != null) params.set("period_id", String(periodId));
+    if (staffId != null) params.set("staff_id", String(staffId));
+    return apiClient.get<AnalyticsSummary>(`/api/notes/analytics?${params}`);
   },
 };

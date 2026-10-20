@@ -15,6 +15,7 @@ from app.models.crisis_note import (
     NoteAction,
     NoteType,
     Priority,
+    character_staff,
     note_characters,
 )
 from app.models.map import Conflict
@@ -29,6 +30,16 @@ from app.schemas import (
 from app.services.notes import require_characters, set_note_characters
 
 router = APIRouter(prefix="/notes", tags=["notes"])
+
+
+def _staff_filter(staff_id: int | None) -> list:
+    """Notes touching a CA's characters: filed under, co-authored by or aimed
+    at one of them."""
+    if staff_id is None:
+        return []
+    mine = select(character_staff.c.character_id).where(character_staff.c.staff_id == staff_id)
+    linked = select(note_characters.c.note_id).where(note_characters.c.character_id.in_(mine))
+    return [or_(CrisisNote.character_id.in_(mine), CrisisNote.id.in_(linked))]
 
 
 def _check_conflict(db: Session, conflict_id: int | None) -> None:
@@ -48,9 +59,11 @@ def _custom_action(action: NoteAction, label: str | None) -> str | None:
 @router.get("/analytics", response_model=AnalyticsSummary)
 def get_analytics(
     period_id: int | None = Query(None),
+    staff_id: int | None = Query(None),
     db: Session = Depends(get_db),
 ) -> AnalyticsSummary:
     period_filter = [CrisisNote.period_id == period_id] if period_id is not None else []
+    period_filter += _staff_filter(staff_id)
 
     if period_id is not None and not db.get(CrisisPeriod, period_id):
         raise HTTPException(status_code=404, detail="Period not found.")
@@ -101,6 +114,7 @@ def list_notes(
     priority: Priority | None = Query(None),
     note_type: NoteType | None = Query(None),
     conflict_id: int | None = Query(None),
+    staff_id: int | None = Query(None),
     q: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> list[CrisisNote]:
@@ -124,6 +138,7 @@ def list_notes(
         )
     if conflict_id is not None:
         query = query.filter(CrisisNote.conflict_id == conflict_id)
+    query = query.filter(*_staff_filter(staff_id))
     if priority is not None:
         query = query.filter(CrisisNote.priority == priority)
     if note_type is not None:

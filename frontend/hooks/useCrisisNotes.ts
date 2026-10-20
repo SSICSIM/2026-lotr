@@ -54,11 +54,11 @@ export function useDeleteNote() {
   });
 }
 
-// periodId=null means "all periods"
-export function useAnalytics(periodId: number | null | undefined) {
+// periodId=null means "all periods"; staffId narrows to one CA's characters.
+export function useAnalytics(periodId: number | null | undefined, staffId: number | null = null) {
   return useQuery({
-    queryKey: ["analytics", periodId ?? "all"],
-    queryFn: () => crisisNotesService.getAnalytics(periodId ?? null),
+    queryKey: ["analytics", periodId ?? "all", staffId],
+    queryFn: () => crisisNotesService.getAnalytics(periodId ?? null, staffId),
     enabled: periodId !== undefined,
   });
 }

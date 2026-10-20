@@ -15,13 +15,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCharacters } from "@/hooks/useCharacters";
 import { usePeriods } from "@/hooks/useCrisisPeriods";
 import { useNotes } from "@/hooks/useCrisisNotes";
+import { useViewingAs } from "@/hooks/useViewingAs";
 import type { NoteFilters } from "@/types/api";
 import { NoteTable } from "./NoteTable";
+import { PlotTimeline } from "./PlotTimeline";
 import { StaffNotesPanel } from "./StaffNotesPanel";
 
 export function ArchiveTab() {
   const { data: periods, isLoading: loadingPeriods } = usePeriods();
   const { data: characters } = useCharacters();
+  const [staffId] = useViewingAs();
 
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
@@ -40,6 +43,7 @@ export function ArchiveTab() {
     ...(periodId != null ? { period_id: periodId } : { archived_only: true }),
     ...(selectedCharacterId ? { character_id: Number(selectedCharacterId) } : {}),
     ...(debouncedQ ? { q: debouncedQ } : {}),
+    ...(staffId != null ? { staff_id: staffId } : {}),
   };
 
   const { data: notes, isLoading: loadingNotes } = useNotes(filters);
@@ -54,6 +58,8 @@ export function ArchiveTab() {
 
   return (
     <div className="space-y-4">
+      <PlotTimeline periods={periods ?? []} />
+
       <div className="flex flex-wrap items-center gap-2">
         <Input
           placeholder="Search notes…"
