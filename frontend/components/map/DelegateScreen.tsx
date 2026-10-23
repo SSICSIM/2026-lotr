@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { UsersIcon } from "lucide-react";
 
+import { useLiveChanges } from "@/hooks/useMap";
 import type { ConflictResponse, GroupView, MapCharacter, RegionResponse, ScreenView } from "@/types/api";
 import type { MapSource } from "./MapCanvas";
 
@@ -94,6 +95,7 @@ function toSource(screen: ScreenView, isGroup: boolean): MapSource {
  * where last seen, and the lands it has been shown.
  */
 export function DelegateScreen({ token }: { token: string }) {
+  useLiveChanges();
   const { data: screen, error } = useQuery({
     queryKey: ["screen", token],
     queryFn: () => fetchScreen(token),

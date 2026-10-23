@@ -163,10 +163,6 @@
 
 /* Delegate view fog: fully opaque (nothing may show through), with blurred
    edges so region borders read as mist rather than cut-out polygons. */
-.leaflet-fog-pane svg {
-  filter: blur(9px);
-}
-
 .lotr-pin {
   position: relative;
   width: 39px;
@@ -189,6 +185,9 @@
   left: 6px;
   top: 34px;
 }
+/* Leaflet sets marker images to width: auto, which leaves a photo at its own
+   shape (overflowing or short of the circle); pin the face to the circle. */
+.leaflet-container .lotr-pin img.lotr-pin-face,
 .lotr-pin-face {
   left: 2px;
   top: 2px;

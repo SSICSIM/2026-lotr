@@ -15,6 +15,8 @@ import type {
 
 export const gameService = {
   get: () => apiClient.get<GameState>("/api/game"),
+  /** A token that changes whenever any map data changes. */
+  changes: () => apiClient.get<{ version: string }>("/api/changes"),
   setClockPaused: (clock_paused: boolean) => apiClient.patch<GameState>("/api/game", { clock_paused }),
   rotateScreenToken: () => apiClient.post<GameState>("/api/game/screen-token", {}),
   setRingHolder: (character_id: number | null) =>

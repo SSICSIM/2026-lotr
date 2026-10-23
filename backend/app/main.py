@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.config import settings
+from app.services import changes
 
 _PROD = os.getenv("ENVIRONMENT", "development") == "production"
 
@@ -27,6 +28,19 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Any successful write to the API moves the change counter, so open map
+    # screens (polling GET /api/changes) refetch within a second.
+    @app.middleware("http")
+    async def track_changes(request: Request, call_next):
+        response = await call_next(request)
+        if (
+            request.method not in ("GET", "HEAD", "OPTIONS")
+            and request.url.path.startswith("/api/")
+            and response.status_code < 400
+        ):
+            changes.bump()
+        return response
 
     app.include_router(api_router)
 

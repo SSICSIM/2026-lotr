@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
+from app.api.changes import router as changes_router
 from app.api.characters import router as characters_router
 from app.api.conflicts import router as conflicts_router
 from app.api.crisis_notes import router as crisis_notes_router
@@ -17,6 +18,7 @@ from app.auth import require_admin_token
 
 api_router = APIRouter(prefix="/api", dependencies=[Depends(require_admin_token)])
 api_router.include_router(health_router)
+api_router.include_router(changes_router)
 api_router.include_router(characters_router)
 api_router.include_router(crisis_periods_router)
 api_router.include_router(crisis_notes_router)
