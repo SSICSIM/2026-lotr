@@ -6,7 +6,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { formatDistanceToNowStrict } from "date-fns";
 import { CloudFogIcon, EyeIcon, MapIcon, SparklesIcon } from "lucide-react";
-import { ImageOverlay, MapContainer, Marker, Pane, Polygon, Polyline, Tooltip, useMap } from "react-leaflet";
+import {
+  ImageOverlay,
+  MapContainer,
+  Marker,
+  Pane,
+  Polygon,
+  Polyline,
+  SVGOverlay,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
 
 import { useConflicts, useGroupView, useGroups, useMapCharacters, useRegions } from "@/hooks/useMap";
 import { MAP_IMAGE, centroid, fromLatLng, hasPendingReveal, toLatLng, type MapPoint } from "@/lib/mapGeo";
@@ -38,9 +48,10 @@ const PENDING_OUTLINE: L.PathOptions = {
   fill: false,
   interactive: false,
 };
-// Delegate views: unrevealed regions sit under fog. The pane is blurred in
-// CSS (.leaflet-fog-pane) so the edges read as mist, not cut-out polygons.
-const FOG: L.PathOptions = { stroke: false, fillColor: "#2a2016", fillOpacity: 1, interactive: false };
+// Delegate views: unrevealed regions sit under fog, blurred so the edges read
+// as mist, not cut-out polygons. Blur is in map-image pixels.
+const FOG_COLOR = "#2a2016";
+const FOG_BLUR = 24;
 const HIT: L.PathOptions = { stroke: false, fill: true, fillOpacity: 0 };
 const HOVER: L.PathOptions = { stroke: true, color: "#d08700", weight: 2, opacity: 0.9, fillOpacity: 0 };
 const SELECTED: L.PathOptions = {
@@ -239,10 +250,19 @@ function RegionHitArea({
   );
 }
 
+/** A region's outline in map-image pixels, for the fog SVG. */
+function fogPoints(region: RegionResponse) {
+  return region.polygon.map(([x, y]) => `${x * MAP_IMAGE.width},${y * MAP_IMAGE.height}`).join(" ");
+}
+
 /**
  * Fog over every region delegates haven't been shown yet. When regions are
  * revealed (a crisis update is published), their fog fades away instead of
  * blinking out, and the newly revealed names are announced.
+ *
+ * Drawn as one SVG pinned to the map image, so it pans and zooms with the map.
+ * (Leaflet's vector layers only cover the viewport and redraw after each move,
+ * which flashed the hidden map while panning or zooming out.)
  */
 function FogLayer({
   regions,
@@ -276,17 +296,29 @@ function FogLayer({
   }, [fogged, regions.length, onRevealed]);
 
   return (
-    <Pane name="fog" className="leaflet-fog-pane" style={{ zIndex: 420 }}>
-      {fogged.map((r) => (
-        <Polygon key={r.id} positions={r.polygon.map(([x, y]) => toLatLng({ x, y }))} pathOptions={FOG} />
-      ))}
-      {fading.map((r) => (
-        <Polygon
-          key={`fade-${r.id}`}
-          positions={r.polygon.map(([x, y]) => toLatLng({ x, y }))}
-          pathOptions={{ ...FOG, className: "lotr-fog-fade" }}
-        />
-      ))}
+    <Pane name="fog" style={{ zIndex: 420, pointerEvents: "none" }}>
+      <SVGOverlay
+        bounds={IMAGE_BOUNDS}
+        interactive={false}
+        attributes={{
+          viewBox: `0 0 ${MAP_IMAGE.width} ${MAP_IMAGE.height}`,
+          preserveAspectRatio: "none",
+        }}
+      >
+        <defs>
+          <filter id="lotr-fog-blur" x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation={FOG_BLUR} />
+          </filter>
+        </defs>
+        <g filter="url(#lotr-fog-blur)" fill={FOG_COLOR}>
+          {fogged.map((r) => (
+            <polygon key={r.id} points={fogPoints(r)} />
+          ))}
+          {fading.map((r) => (
+            <polygon key={`fade-${r.id}`} points={fogPoints(r)} className="lotr-fog-fade" />
+          ))}
+        </g>
+      </SVGOverlay>
     </Pane>
   );
 }

@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useGroups } from "@/hooks/useMap";
+import { useGroups, useLiveChanges } from "@/hooks/useMap";
 import { MapActionsProvider } from "./MapActions";
 import { MapSidebar } from "./MapSidebar";
 import { useMapParams } from "./useMapParams";
@@ -27,6 +27,7 @@ export function MapPage() {
   const { regionId, view, setView, seenBy, setSeenBy } = useMapParams();
   const { data: groups = [] } = useGroups();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  useLiveChanges();
 
   return (
     <MapActionsProvider>

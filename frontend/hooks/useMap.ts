@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -18,6 +19,28 @@ import type {
 // Several crisis staff work the map at once; poll so everyone's view
 // converges within a few seconds without a websocket layer.
 const LIVE = { refetchInterval: 5000 } as const;
+
+/**
+ * Makes a change on one screen show up on every other open screen within
+ * about a second: polls a cheap change counter and refetches the rest only
+ * when it moves. (The 5s polling above stays as a fallback.)
+ */
+export function useLiveChanges() {
+  const qc = useQueryClient();
+  const seen = useRef<string | null>(null);
+  const { data } = useQuery({
+    queryKey: ["changes"],
+    queryFn: () => gameService.changes(),
+    refetchInterval: 1000,
+  });
+  useEffect(() => {
+    if (!data) return;
+    if (seen.current != null && seen.current !== data.version) {
+      qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "changes" });
+    }
+    seen.current = data.version;
+  }, [data, qc]);
+}
 
 export function useMapCharacters(enabled = true) {
   return useQuery({
